@@ -1,0 +1,205 @@
+ # AudioMIDIBridge Configuration
+# All MIDI values are 0-127 unless noted.
+# Frequency values are in Hz.
+
+[audio]
+# Input device name substring to match (leave empty for system default)
+# Example: "Built-in Microphone" or "Focusrite"
+input_device = ""
+
+# Sample rate (44100 or 48000)
+sample_rate = 44100
+
+# FFT window size — larger = better frequency resolution, more latency
+# Must be power of 2. Recommended: 2048 or 4096
+fft_size = 2048
+
+# Analysis hop size (samples between frames). 512 = ~11ms at 44100Hz
+hop_size = 512
+
+# Silence threshold — RMS below this = "no music"
+# Range 0.0–1.0. Start at 0.01 and tune to your room noise floor.
+silence_threshold = 0.01
+
+# How many consecutive silent frames before "no music" is declared
+# At 512 hop / 44100 sr, each frame ~11ms. 200 frames ≈ 2.2 seconds.
+silence_holdoff_frames = 200
+
+[frequency_bands]
+# Define named frequency bands to monitor independently.
+# Each band triggers its own MIDI note based on energy in that range.
+# Format: name = [low_hz, high_hz]
+# You can define up to 8 bands.
+
+kick   = [40, 120]
+snare  = [150, 400]
+hihat  = [6000, 14000]
+bass   = [80, 250]
+mid    = [250, 2000]
+high   = [2000, 8000]
+
+[tempo]
+# BPM estimation — valid range the detector will search
+bpm_min = 60
+bpm_max = 180
+
+# Onset detection sensitivity (0.0–1.0). Higher = more sensitive, more false positives.
+onset_sensitivity = 0.5
+
+# How many beats to average for BPM stability
+bpm_smoothing_beats = 8
+
+# MIDI note sent as a "tap" on each detected beat
+# This is a short note-on burst (duration = tap_note_duration_ms)
+tap_note = 52
+tap_channel = 0
+tap_velocity = 100
+tap_note_duration_ms = 20
+
+[energy]
+# Energy is computed as overall RMS, mapped to 0–127.
+# Define thresholds that map to MIDI note triggers (scene changes).
+# When energy crosses a threshold boundary, the corresponding note fires.
+
+# Minimum beats between stable energy cycle notes.
+# Realtime peak/trough note jumps can fire sooner when thresholds are crossed.
+cycle_beats = 16
+
+# Realtime peak/trough thresholds for immediate note jumps.
+baseline_threshold = 0.05
+peak_threshold = 0.25
+peak_note = -1
+peak_channel = 2
+peak_velocity = 100
+trough_note = -1
+trough_channel = 2
+trough_velocity = 100
+
+# Each level: [min_rms_0_to_1, midi_note, midi_channel, velocity]
+# Levels are checked in order; first match wins.
+# The crossfade duration sent is derived from current BPM (one bar = 4 beats).
+
+[[energy.levels]]
+name       = "silent"
+min_rms    = 0.0
+max_rms    = 0.01
+midi_note  = 0
+channel    = 2
+velocity   = 0
+
+[[energy.levels]]
+name       = "low"
+min_rms    = 0.01
+max_rms    = 0.08
+midi_notes = [36, 38, 40]
+channel    = 2
+velocity   = 40
+
+[[energy.levels]]
+name       = "medium"
+min_rms    = 0.08
+max_rms    = 0.20
+midi_notes = [37, 39, 41]
+channel    = 2
+velocity   = 80
+
+[[energy.levels]]
+name       = "high"
+min_rms    = 0.20
+max_rms    = 0.50
+midi_note  = 38
+channel    = 2
+velocity   = 110
+
+[[energy.levels]]
+name       = "very_high"
+min_rms    = 0.50
+max_rms    = 1.0
+midi_note  = 39
+channel    = 2
+velocity   = 127
+
+[energy.smoothing]
+# Attack / release times for energy envelope (in frames)
+# Low attack = snappy response; high release = slower decay
+attack_frames  = 3
+release_frames = 30
+
+# Hysteresis: energy must exceed a level's threshold by this much
+# before triggering (prevents rapid scene-switching at boundaries)
+hysteresis = 0.02
+
+[silence]
+# MIDI note sent when no music is detected
+midi_note  = 127
+channel    = 2
+velocity   = 0
+# Note sent when music resumes after silence
+resume_note     = 126
+resume_channel  = 2
+resume_velocity = 64
+
+[band_triggers]
+# Per-band MIDI notes. When a band's energy exceeds its threshold,
+# a note-on is sent. Note-off fires after trigger_duration_ms.
+trigger_duration_ms = 30
+
+[[band_triggers.bands]]
+name      = "kick"
+threshold = 0.15
+midi_note = 48
+channel   = 3
+velocity_scale = 1.0   # multiply detected energy (0–1) by 127
+
+[[band_triggers.bands]]
+name      = "snare"
+threshold = 0.12
+midi_note = 49
+channel   = 3
+velocity_scale = 1.0
+
+[[band_triggers.bands]]
+name      = "hihat"
+threshold = 0.08
+midi_note = 50
+channel   = 3
+velocity_scale = 0.8
+
+[[band_triggers.bands]]
+name      = "bass"
+threshold = 0.10
+midi_note = 51
+channel   = 3
+velocity_scale = 1.0
+
+[crossfade]
+# When energy level changes, a crossfade CC is sent so the lighting
+# application knows how long to blend between scenes.
+# CC value = crossfade duration in beats (tempo-derived).
+cc_number  = 20
+channel    = 2
+# Fixed crossfade beats when BPM is unknown
+default_beats = 4
+
+[calibration]
+# Path to a calibration audio file for --calibrate mode.
+audio_file = "calibration_test.wav"
+
+# Sections define labeled segments of the audio file.
+# Each section begins at the given start_time (seconds).
+# The next section start_time defines the end of the previous one.
+[[calibration.sections]]
+name = "silence"
+start_time = 0.0
+
+[[calibration.sections]]
+name = "low energy"
+start_time = 10.0
+
+[[calibration.sections]]
+name = "moderate energy"
+start_time = 20.0
+
+[[calibration.sections]]
+name = "high energy"
+start_time = 30.0

@@ -1,0 +1,185 @@
+classDiagram
+    class AppConfig {
+        +AudioConfig audio
+        +TempoConfig tempo
+        +EnergyConfig energy
+        +SilenceConfig silence
+        +BandTriggersConfig bandTriggers
+        +CrossfadeConfig crossfade
+        +CalibrationConfig calibration
+        +FrequencyBand[] frequencyBands
+    }
+
+    class AudioConfig {
+        +String inputDevice
+        +Double sampleRate
+        +Int fftSize
+        +Int hopSize
+        +Double silenceThreshold
+        +Int silenceHoldoffFrames
+    }
+
+    class TempoConfig {
+        +Double bpmMin
+        +Double bpmMax
+        +Double onsetSensitivity
+        +Int bpmSmoothingBeats
+        +Int tempoChangeBeats
+        +Int tapNote
+        +Int tapChannel
+        +Int tapVelocity
+        +Int tapDurationMs
+    }
+
+    class EnergyConfig {
+        +EnergyLevel[] levels
+        +Int attackFrames
+        +Int releaseFrames
+        +Double hysteresis
+        +Int bufferDurationMs
+        +Double baselineThreshold
+        +Double peakThreshold
+        +Int peakNote
+        +Int peakChannel
+        +Int peakVelocity
+        +Int troughNote
+        +Int troughChannel
+        +Int troughVelocity
+        +Int cycleBeats
+        +Int[] cycleNotes
+    }
+
+    class EnergyLevel {
+        +String name
+        +Double minRMS
+        +Double maxRMS
+        +Int midiNote
+        +Int channel
+        +Int velocity
+    }
+
+    class SilenceConfig {
+        +Int midiNote
+        +Int channel
+        +Int velocity
+        +Int resumeNote
+        +Int resumeChannel
+        +Int resumeVelocity
+    }
+
+    class BandTriggersConfig {
+        +Int triggerDurationMs
+        +BandTrigger[] bands
+    }
+
+    class BandTrigger {
+        +String name
+        +Double threshold
+        +Int midiNote
+        +Int channel
+        +Double velocityScale
+    }
+
+    class CrossfadeConfig {
+        +Int ccNumber
+        +Int channel
+        +Int defaultBeats
+    }
+
+    class CalibrationConfig {
+        +String audioFile
+        +CalibrationSection[] sections
+    }
+
+    class CalibrationSection {
+        +String name
+        +Double startTime
+    }
+
+    class FrequencyBand {
+        +String name
+        +Double lowHz
+        +Double highHz
+    }
+
+    class ConfigParser {
+        +load(path: String): AppConfig
+        +loadDefault(): AppConfig
+    }
+
+    class AudioFrame {
+        +Double rms
+        +Map<String,Double> bandEnergies
+        +Double onsetStrength
+        +Double timestamp
+    }
+
+    class AudioEngine {
+        +start()
+        +stop()
+        +processTap(buffer: AVAudioPCMBuffer)
+        +analyzeFrame()
+        +onFrame: ((AudioFrame) -> Void)?
+    }
+
+    class TempoDetector {
+        +feed(frame: AudioFrame)
+        +reset()
+        +crossfadeDuration(beats: Int): Double
+        +crossfadeCCValue(beats: Int): Int
+        +onBeat: ((Double) -> Void)?
+    }
+
+    class EnergyTracker {
+        +feed(rms: Double)
+        +reset()
+        +onLevelChange: ((EnergyLevel, Int) -> Void)?
+        +onSilenceBegin: (() -> Void)?
+        +onSilenceEnd: (() -> Void)?
+        +onPeakTrigger: ((Int, Int, Int) -> Void)?
+        +onTroughTrigger: ((Int, Int, Int) -> Void)?
+    }
+
+    class BandTriggerTracker {
+        +feed(bandEnergies: [String:Double])
+        +reset()
+        +onTrigger: ((BandTrigger, Int) -> Void)?
+    }
+
+    class TerminalDisplay {
+        +update(frame: AudioFrame, bpm: Double, level: String, isSilent: Bool, levelChanged: Bool, playTime: Double, silenceTime: Double, lastNote: String, bufferedEnergy: Double)
+        +signalBeat()
+    }
+
+    class MIDIOutput {
+        +noteOnTimed(channel: Int, note: Int, velocity: Int, durationMs: Int)
+        +cc(channel: Int, number: Int, value: Int)
+        +noteOff(channel: Int, note: Int)
+    }
+
+    AppConfig o-- AudioConfig
+    AppConfig o-- TempoConfig
+    AppConfig o-- EnergyConfig
+    AppConfig o-- SilenceConfig
+    AppConfig o-- BandTriggersConfig
+    AppConfig o-- CrossfadeConfig
+    AppConfig o-- CalibrationConfig
+    AppConfig o-- FrequencyBand
+    EnergyConfig o-- EnergyLevel
+    BandTriggersConfig o-- BandTrigger
+    CalibrationConfig o-- CalibrationSection
+    AudioEngine --> AppConfig
+    AudioEngine --> AudioFrame
+    AudioEngine ..> TempoDetector
+    AudioEngine ..> EnergyTracker
+    AudioEngine ..> BandTriggerTracker
+    AudioEngine ..> TerminalDisplay
+    TempoDetector --> TempoConfig
+    EnergyTracker --> EnergyConfig
+    EnergyTracker --> SilenceConfig
+    BandTriggerTracker --> BandTriggersConfig
+    TerminalDisplay --> AppConfig
+    TempoDetector ..> MIDIOutput
+    EnergyTracker ..> MIDIOutput
+    BandTriggerTracker ..> MIDIOutput
+    ConfigParser --> AppConfig
