@@ -88,6 +88,8 @@ The GUI runs the same engine as the CLI (starts listening immediately) and adds:
 - **Frequency bands**, **status/play time/silence time/tempo**, and the resolved **audio input** / **MIDI output** are all displayed read-only.
 - **Calibrate…** runs the same analysis as `--calibrate` against `calibration.audio_file`, after a confirmation dialog (shown the configured file path) warning that applying the recommendations will overwrite current, unsaved threshold adjustments. Applying is still a live-only change until you press Save.
 
+<img width="1664" height="1013" alt="image" src="https://github.com/user-attachments/assets/b178578f-a043-4191-a07a-6bbfc8e58ac4" />
+
 Note: audio input device selection and MIDI note/channel assignments are fixed at launch (from config.toml) and aren't editable from the GUI — only the threshold values above are live-adjustable.
 
 ---
