@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import CoreMIDI
+import AudioMIDIBridgeCore
 
 // ---------------------------------------------------------------------------
 // AudioMIDIBridge — entry point
@@ -20,6 +21,7 @@ func printHelp() {
       --list-audio        List available audio input devices and exit
       --list-midi         List available MIDI destinations and exit
       --device-id <uid>   Select audio input device by unique ID
+      --gain <value>      Manual input gain multiplier (overrides config.toml input_gain)
       --calibrate          Run calibration mode using the audio file referenced in config.toml
       --no-display        Suppress the live terminal dashboard
       -h, --help          Show this help
@@ -48,248 +50,13 @@ func printHelp() {
     """)
 }
 
-enum CalibrationError: LocalizedError {
-    case missingAudioFile
-    case audioFileNotFound(String)
-    case noCalibrationSections
-    case invalidAudioData(String)
-    case sectionOutOfRange(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .missingAudioFile:
-            return "Calibration mode requires `calibration.audio_file` in config.toml."
-        case .audioFileNotFound(let path):
-            return "Calibration audio file not found: \(path)"
-        case .noCalibrationSections:
-            return "Calibration mode requires at least one [[calibration.sections]] entry in config.toml."
-        case .invalidAudioData(let msg):
-            return "Invalid calibration audio data: \(msg)"
-        case .sectionOutOfRange(let name):
-            return "Calibration section start time out of range: \(name)"
-        }
-    }
-}
-
-private func secondsToTime(_ value: Double) -> String {
-    let total = Int(value + 0.5)
-    let h = total / 3600
-    let m = (total % 3600) / 60
-    let s = total % 60
-    if h > 0 {
-        return String(format: "%d:%02d:%02d", h, m, s)
-    }
-    return String(format: "%02d:%02d", m, s)
-}
-
 private func runCalibration(cfg: AppConfig) throws {
-    guard !cfg.calibration.audioFile.isEmpty else { throw CalibrationError.missingAudioFile }
-    guard !cfg.calibration.sections.isEmpty else { throw CalibrationError.noCalibrationSections }
-
-    let audioURL = URL(fileURLWithPath: cfg.calibration.audioFile)
-    guard FileManager.default.fileExists(atPath: audioURL.path) else {
-        throw CalibrationError.audioFileNotFound(audioURL.path)
-    }
-
-    let file = try AVAudioFile(forReading: audioURL)
-    let format = file.processingFormat
-    let frameCount = Int(file.length)
-    guard frameCount > 0 else {
-        throw CalibrationError.invalidAudioData("empty audio file")
-    }
-
-    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount)) else {
-        throw CalibrationError.invalidAudioData("could not create buffer for audio file format")
-    }
-
-    try file.read(into: buffer)
-
-    func monoSamples(from buffer: AVAudioPCMBuffer) -> [Float]? {
-        let frames = Int(buffer.frameLength)
-        let channels = Int(buffer.format.channelCount)
-        var out = [Float](repeating: 0, count: frames)
-
-        switch buffer.format.commonFormat {
-        case .pcmFormatFloat32:
-            guard let data = buffer.floatChannelData else { return nil }
-            for i in 0..<frames {
-                var sum: Float = 0
-                for ch in 0..<channels { sum += data[ch][i] }
-                out[i] = sum / Float(channels)
-            }
-            return out
-        case .pcmFormatFloat64:
-            let audioBufferList = buffer.audioBufferList
-            let bufferCount = Int(audioBufferList.pointee.mNumberBuffers)
-            guard bufferCount == channels else { return nil }
-            let channelData: [UnsafePointer<Float64>] = withUnsafePointer(to: audioBufferList.pointee.mBuffers) { bufferPtr in
-                let buffers = UnsafeBufferPointer(start: bufferPtr, count: bufferCount)
-                return buffers.compactMap { audioBuffer in
-                    if let mutablePtr = audioBuffer.mData?.assumingMemoryBound(to: Float64.self) {
-                        return UnsafePointer(mutablePtr)
-                    }
-                    return nil
-                }
-            }
-            guard channelData.count == channels else { return nil }
-            for i in 0..<frames {
-                var sum: Double = 0
-                for ch in 0..<channels { sum += channelData[ch][i] }
-                out[i] = Float(sum / Double(channels))
-            }
-            return out
-        case .pcmFormatInt16:
-            guard let data = buffer.int16ChannelData else { return nil }
-            for i in 0..<frames {
-                var sum: Float = 0
-                for ch in 0..<channels { sum += Float(data[ch][i]) / 32768.0 }
-                out[i] = sum / Float(channels)
-            }
-            return out
-        case .pcmFormatInt32:
-            guard let data = buffer.int32ChannelData else { return nil }
-            for i in 0..<frames {
-                var sum: Float = 0
-                for ch in 0..<channels { sum += Float(data[ch][i]) / Float(Int32.max) }
-                out[i] = sum / Float(channels)
-            }
-            return out
-        default:
-            return nil
-        }
-    }
-
-    guard let samples = monoSamples(from: buffer) else {
-        throw CalibrationError.invalidAudioData("unsupported audio sample format")
-    }
-
-    let fileDuration = Double(frameCount) / format.sampleRate
-    let sections = cfg.calibration.sections.sorted { $0.startTime < $1.startTime }
-    var sectionSummaries: [(section: CalibrationSection, startSample: Int, endSample: Int, averageRMS: Double, peak: Double)] = []
-
-    for (index, section) in sections.enumerated() {
-        guard section.startTime >= 0 && section.startTime <= fileDuration else {
-            throw CalibrationError.sectionOutOfRange(section.name)
-        }
-        let startSample = min(frameCount - 1, Int(section.startTime * format.sampleRate))
-        let endSample = index + 1 < sections.count
-            ? min(frameCount, Int(sections[index + 1].startTime * format.sampleRate))
-            : frameCount
-        guard endSample > startSample else {
-            throw CalibrationError.invalidAudioData("section \(section.name) has non-positive duration")
-        }
-
-        var sumSq: Float = 0
-        var peak: Float = 0
-        for i in startSample..<endSample {
-            let value = abs(samples[i])
-            sumSq += value * value
-            peak = max(peak, value)
-        }
-        let count = Float(endSample - startSample)
-        let rms = sqrt(sumSq / count)
-        sectionSummaries.append((section, startSample, endSample, Double(rms), Double(peak)))
-    }
-
-    func category(for name: String) -> String {
-        let lower = name.lowercased()
-        if lower.contains("silence") || lower.contains("drop") { return "silence" }
-        if lower.contains("tempo") { return "tempo" }
-        if lower.contains("high") { return "high" }
-        if lower.contains("moderate") { return "moderate" }
-        if lower.contains("low") || lower.contains("drums") { return "low" }
-        return "unknown"
-    }
-
-    var categoryRMS: [String: [Double]] = [:]
-    for summary in sectionSummaries {
-        let cat = category(for: summary.section.name)
-        categoryRMS[cat, default: []].append(summary.averageRMS)
-    }
-
-    func mean(_ values: [Double]) -> Double? {
-        guard !values.isEmpty else { return nil }
-        return values.reduce(0, +) / Double(values.count)
-    }
-
-    let silenceMean = mean(categoryRMS["silence"] ?? [])
-    let lowMean = mean(categoryRMS["low"] ?? []) ?? mean(categoryRMS["unknown"] ?? [])
-    let moderateMean = mean(categoryRMS["moderate"] ?? []) ?? lowMean
-    let highMean = mean(categoryRMS["high"] ?? []) ?? moderateMean
-
-    let recommendedSilence = silenceMean.map { max(0.001, min($0 * 1.6, max($0 + 0.002, 0.02))) }
-    let recommendedBaseline: Double?
-    if let silence = silenceMean, let low = lowMean {
-        recommendedBaseline = min(max((silence + low) / 2.0, silence + 0.01), low - 0.01)
-    } else {
-        recommendedBaseline = nil
-    }
-    let recommendedPeak: Double?
-    if let high = highMean, let moderate = moderateMean {
-        recommendedPeak = min(max((high + moderate) / 2.0, moderate + 0.02), high - 0.01)
-    } else {
-        recommendedPeak = nil
-    }
-
-    var issues: [String] = []
-    if categoryRMS["silence"]?.isEmpty ?? true {
-        issues.append("No silence/drop section found in calibration sections.")
-    }
-    if categoryRMS["high"]?.isEmpty ?? true {
-        issues.append("No high energy section was classified; peak threshold recommendation may be imprecise.")
-    }
-    if let low = lowMean, let high = highMean, low >= high * 0.75 {
-        issues.append("Low, moderate, and high energy sections have similar RMS levels; energy thresholds may be hard to distinguish.")
-    }
-    if let silence = silenceMean, let baseline = recommendedBaseline, silence >= baseline {
-        issues.append("Silence RMS is not meaningfully below the baseline energy recommendation.")
-    }
-    let tempoSections = sectionSummaries.filter { category(for: $0.section.name) == "tempo" }
-    if let tempoSection = tempoSections.first {
-        let duration = Double(tempoSection.endSample - tempoSection.startSample) / format.sampleRate
-        if duration < 8 {
-            issues.append("Tempo change section '\(tempoSection.section.name)' is shorter than 8 seconds, which may make tempo tracking less reliable.")
-        }
-    }
-
-    var output = "Calibration Summary\n"
-    output += "Audio file: \(audioURL.path)\n"
-    output += String(format: "Duration: %.2fs\n", fileDuration)
-    output += "\nSections:\n"
-
-    for summary in sectionSummaries {
-        let startSec = Double(summary.startSample) / format.sampleRate
-        let endSec = Double(summary.endSample) / format.sampleRate
-        output += String(format: " - %-20s %5s → %5s  RMS=%.4f peak=%.4f\n",
-                         (summary.section.name as NSString).utf8String!,
-                         secondsToTime(startSec),
-                         secondsToTime(endSec),
-                         summary.averageRMS,
-                         summary.peak)
-    }
-
-    output += "\nRecommended Settings:\n"
-    if let silence = recommendedSilence {
-        output += String(format: " - audio.silence_threshold = %.4f\n", silence)
-    }
-    if let baseline = recommendedBaseline {
-        output += String(format: " - energy.baseline_threshold = %.4f\n", baseline)
-    }
-    if let peak = recommendedPeak {
-        output += String(format: " - energy.peak_threshold = %.4f\n", peak)
-    }
-    output += "\nPotential Issues:\n"
-    if issues.isEmpty {
-        output += " - None detected. Calibration audio appears well-structured for this application.\n"
-    } else {
-        for issue in issues {
-            output += " - \(issue)\n"
-        }
-    }
+    let result = try runCalibrationAnalysis(cfg: cfg)
+    let report = formatCalibrationReport(result)
 
     let summaryPath = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("calibration_summary.txt")
-    try output.write(to: summaryPath, atomically: true, encoding: .utf8)
-    print(output)
+    try report.write(to: summaryPath, atomically: true, encoding: .utf8)
+    print(report)
     print("Calibration summary saved to: \(summaryPath.path)")
 }
 
@@ -299,6 +66,7 @@ var configPath  = "./config.toml"
 var showDisplay = true
 var calibrationMode = false
 var deviceID    = ""
+var gainOverride: Double? = nil
 var args        = CommandLine.arguments.dropFirst()
 
 while let arg = args.first {
@@ -316,6 +84,15 @@ while let arg = args.first {
         calibrationMode = true
     case "--device-id":
         if let next = args.first { deviceID = next; args = args.dropFirst() }
+    case "--gain":
+        if let next = args.first {
+            args = args.dropFirst()
+            guard let g = Double(next), g.isFinite, g > 0 else {
+                fputs("Invalid --gain value: \(next) (must be a positive number)\n", stderr)
+                exit(1)
+            }
+            gainOverride = g
+        }
     case "--config":
         if let next = args.first { configPath = next; args = args.dropFirst() }
     default:
@@ -339,6 +116,10 @@ do {
 
 if !deviceID.isEmpty {
     cfg.audio.inputDevice = deviceID
+}
+
+if let gainOverride {
+    cfg.audio.inputGain = gainOverride
 }
 
 if calibrationMode {
@@ -385,11 +166,17 @@ var totalSilenceTime: Double = 0
 var lastFrameTimestamp: Double = CACurrentMediaTime()
 var stableLevelSince: Double = CACurrentMediaTime()
 var currentEnergyLevelIndex = -1
-var energyCycleIndexes = [Int](repeating: 0, count: cfg.energy.levels.count)
+let energyNoteCycler = EnergyNoteCycler()
+// Beats remaining until the next auto-cycle note within the current stable
+// energy level; nil while silent / no level is active (cycling doesn't
+// apply). Recomputed every frame in maybeSendEnergyCycleNote so it counts
+// down continuously and snaps back to cycle_beats the instant a cycle note
+// fires.
+var cycleBeatsRemaining: Int? = nil
 
-func sendNoteOn(channel: Int, note: Int, velocity: Int, durationMs: Int) {
-    midi.noteOnTimed(channel: channel, note: note, velocity: velocity, durationMs: durationMs)
-    lastSentNoteDesc = "ch\(channel) note\(note) vel\(velocity)"
+func sendNoteOn(channel: Int, note: Int, durationMs: Int) {
+    midi.noteOnTimed(channel: channel, note: note, velocity: defaultNoteVelocity, durationMs: durationMs)
+    lastSentNoteDesc = "ch\(channel) note\(note)"
 }
 
 func stableCycleThreshold(beats: Int, bpm: Double) -> Double {
@@ -398,20 +185,17 @@ func stableCycleThreshold(beats: Int, bpm: Double) -> Double {
 }
 
 func maybeSendEnergyCycleNote(now: Double) {
-    guard !energy.silent else { return }
-    guard let level = energy.currentLevel else { return }
+    guard !energy.silent, let level = energy.currentLevel else {
+        cycleBeatsRemaining = nil
+        return
+    }
 
-    let levelIndex = currentEnergyLevelIndex >= 0 ? currentEnergyLevelIndex
-                     : cfg.energy.levels.firstIndex(where: { $0.name == level.name }) ?? -1
-    guard levelIndex >= 0 else { return }
-    guard !level.midiNotes.isEmpty else { return }
-
-    let threshold = stableCycleThreshold(beats: cfg.energy.cycleBeats, bpm: tempo.bpm)
+    let effectiveBpm   = tempo.bpm > 0 ? tempo.bpm : 120.0
+    let secondsPerBeat = 60.0 / effectiveBpm
+    let threshold      = Double(cfg.energy.cycleBeats) * secondsPerBeat
     if now - stableLevelSince >= threshold {
-        let nextIndex = (energyCycleIndexes[levelIndex] + 1) % level.midiNotes.count
-        energyCycleIndexes[levelIndex] = nextIndex
-        let nextNote = level.note(at: nextIndex)
-        sendNoteOn(channel: level.channel, note: nextNote, velocity: level.velocity, durationMs: 50)
+        let nextNote = energyNoteCycler.advance(for: level)
+        sendNoteOn(channel: level.channel, note: nextNote, durationMs: 50)
         let msg = "[CYCLE] Stable energy level '\(level.name)' for \(cfg.energy.cycleBeats) beats — sent note \(nextNote)"
         if showDisplay {
             fputs(msg + "\n", stderr)
@@ -420,6 +204,9 @@ func maybeSendEnergyCycleNote(now: Double) {
         }
         stableLevelSince = now
     }
+
+    let elapsedBeats = Int((now - stableLevelSince) / secondsPerBeat)
+    cycleBeatsRemaining = max(0, cfg.energy.cycleBeats - elapsedBeats)
 }
 
 // MARK: - Wire callbacks
@@ -428,7 +215,6 @@ func maybeSendEnergyCycleNote(now: Double) {
 tempo.onBeat = { bpm in
     sendNoteOn(channel: cfg.tempo.tapChannel,
                note: cfg.tempo.tapNote,
-               velocity: cfg.tempo.tapVelocity,
                durationMs: cfg.tempo.tapDurationMs)
     display?.signalBeat()
 
@@ -447,10 +233,13 @@ energy.onLevelChange = { level, index in
     levelChanged     = true
     stableLevelSince = CACurrentMediaTime()
 
-    // Note-on for scene change
+    // Note-on for scene change. Exactly one key-on message per entry: the
+    // first-ever visit to this level plays its first configured note; a
+    // level re-entered later continues from wherever its own sequence
+    // last left off (see EnergyNoteCycler).
+    let note = energyNoteCycler.advance(for: level)
     sendNoteOn(channel: level.channel,
-               note: level.midiNote,
-               velocity: level.velocity,
+               note: note,
                durationMs: 50)
 
     // Crossfade CC — value encodes duration hint
@@ -459,7 +248,7 @@ energy.onLevelChange = { level, index in
             number: cfg.crossfade.ccNumber,
             value: cfVal)
 
-    let msg = "[ENERGY] \(level.name.uppercased())  note=\(level.midiNote) vel=\(level.velocity)  crossfade CC\(cfg.crossfade.ccNumber)=\(cfVal)"
+    let msg = "[ENERGY] \(level.name.uppercased())  note=\(note)  crossfade CC\(cfg.crossfade.ccNumber)=\(cfVal)"
     if showDisplay {
         fputs(msg + "\n", stderr)
     } else {
@@ -467,9 +256,9 @@ energy.onLevelChange = { level, index in
     }
 }
 
-energy.onPeakTrigger = { note, channel, velocity in
-    sendNoteOn(channel: channel, note: note, velocity: velocity, durationMs: 50)
-    let msg = "[PEAK] Realtime jump to peak threshold — note=\(note) vel=\(velocity)"
+energy.onPeakTrigger = { note, channel in
+    sendNoteOn(channel: channel, note: note, durationMs: 50)
+    let msg = "[PEAK] Realtime jump to peak threshold — note=\(note)"
     if showDisplay {
         fputs(msg + "\n", stderr)
     } else {
@@ -477,9 +266,9 @@ energy.onPeakTrigger = { note, channel, velocity in
     }
 }
 
-energy.onTroughTrigger = { note, channel, velocity in
-    sendNoteOn(channel: channel, note: note, velocity: velocity, durationMs: 50)
-    let msg = "[TROUGH] Realtime drop to baseline threshold — note=\(note) vel=\(velocity)"
+energy.onTroughTrigger = { note, channel in
+    sendNoteOn(channel: channel, note: note, durationMs: 50)
+    let msg = "[TROUGH] Realtime drop to baseline threshold — note=\(note)"
     if showDisplay {
         fputs(msg + "\n", stderr)
     } else {
@@ -496,7 +285,6 @@ energy.onSilenceBegin = {
 
     sendNoteOn(channel: cfg.silence.channel,
                note: cfg.silence.midiNote,
-               velocity: cfg.silence.velocity,
                durationMs: 100)
 
     let msg = "[SILENCE] Music stopped — reset note \(cfg.silence.midiNote) sent"
@@ -515,7 +303,6 @@ energy.onSilenceEnd = {
 
     sendNoteOn(channel: cfg.silence.resumeChannel,
                note: cfg.silence.resumeNote,
-               velocity: cfg.silence.resumeVelocity,
                durationMs: 50)
 
     let msg = "[RESUME] Music detected — resume note \(cfg.silence.resumeNote) sent"
@@ -527,10 +314,9 @@ energy.onSilenceEnd = {
 }
 
 // Band triggers → MIDI
-bands.onTrigger = { trigger, velocity in
+bands.onTrigger = { trigger in
     sendNoteOn(channel: trigger.channel,
                note: trigger.midiNote,
-               velocity: velocity,
                durationMs: cfg.bandTriggers.triggerDurationMs)
 }
 
@@ -559,7 +345,8 @@ audio.onFrame = { frame in
                     playTime: totalPlayTime,
                     silenceTime: totalSilenceTime,
                     lastNote: lastSentNoteDesc,
-                    bufferedEnergy: energy.currentBufferedEnvelope)
+                    bufferedEnergy: energy.currentBufferedEnvelope,
+                    cycleBeatsRemaining: cycleBeatsRemaining)
     levelChanged = false
 }
 

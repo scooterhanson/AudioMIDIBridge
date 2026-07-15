@@ -1,0 +1,82 @@
+{
+  "": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AudioMIDIBridgeGUI.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AudioMIDIBridgeGUI.o",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/master.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/AppController.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AppController.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AppController~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AppController.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/AudioMIDIBridgeGUIApp.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AudioMIDIBridgeGUIApp.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AudioMIDIBridgeGUIApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/AudioMIDIBridgeGUIApp.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/ConfigFileWriter.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/ConfigFileWriter.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/ConfigFileWriter~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/ConfigFileWriter.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/AppFont.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/AppFont.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/AppFont~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/AppFont.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/CalibratePanel.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/CalibratePanel.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/CalibratePanel~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/CalibratePanel.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/ContentView.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/ContentView.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/ContentView~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/ContentView.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/HistoryPanel.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/HistoryPanel.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/HistoryPanel~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/HistoryPanel.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/MeterGaugeView.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/MeterGaugeView.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/MeterGaugeView~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/MeterGaugeView.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/MidiMappingPanel.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/MidiMappingPanel.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/MidiMappingPanel~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/MidiMappingPanel.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/PickerRow.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/PickerRow.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/PickerRow~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/PickerRow.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/PulsingThresholdSliderRow.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/PulsingThresholdSliderRow.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/PulsingThresholdSliderRow~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/PulsingThresholdSliderRow.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/SliderRow.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/SliderRow.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/SliderRow~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/SliderRow.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/StatusPanel.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/StatusPanel.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/StatusPanel~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/StatusPanel.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/ThresholdsPanel.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/ThresholdsPanel.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/ThresholdsPanel~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/ThresholdsPanel.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/TuningRecommendationsBanner.swift": {
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/TuningRecommendationsBanner.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/TuningRecommendationsBanner~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/release/AudioMIDIBridgeGUI.build/Views/TuningRecommendationsBanner.swiftdeps"
+  }
+}

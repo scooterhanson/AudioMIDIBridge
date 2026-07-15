@@ -1,0 +1,7 @@
+version: "Apple Swift version 5.7.2 (swiftlang-5.7.2.135.5 clang-1400.0.29.51)"
+options: "6dd719226eb82403e10830062da045923f2f42c60c98192980903f0ef969f872"
+build_start_time: [1784102669, 271987915]
+build_end_time: [1784102670, 533612012]
+inputs:
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/TerminalDisplay.swift": [1784102419, 69879531]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/main.swift": [1784102419, 70553779]

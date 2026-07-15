@@ -1,0 +1,20 @@
+version: "Apple Swift version 5.7.2 (swiftlang-5.7.2.135.5 clang-1400.0.29.51)"
+options: "cae71eb22483fd5b797d1d57cf006141e717924ae56f1cf99c9856da8c216751"
+build_start_time: [1784102669, 273738861]
+build_end_time: [1784102676, 145461082]
+inputs:
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/AppController.swift": [1784102419, 73276042]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/AudioMIDIBridgeGUIApp.swift": [1784102419, 72623252]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/ConfigFileWriter.swift": [1784102419, 71925163]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/AppFont.swift": [1784102419, 82660675]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/CalibratePanel.swift": [1784102419, 79492330]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/ContentView.swift": [1784102419, 81401824]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/HistoryPanel.swift": [1784102419, 74899673]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/MeterGaugeView.swift": [1784102419, 78606128]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/MidiMappingPanel.swift": [1784102419, 75963497]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/PickerRow.swift": [1784102419, 80823898]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/PulsingThresholdSliderRow.swift": [1784102419, 76632022]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/SliderRow.swift": [1784102419, 75411081]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/StatusPanel.swift": [1784102419, 77530860]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/ThresholdsPanel.swift": [1784102419, 80114126]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/TuningRecommendationsBanner.swift": [1784102419, 82000255]

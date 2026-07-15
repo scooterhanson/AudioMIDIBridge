@@ -1,0 +1,17 @@
+{
+  "": {
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/master.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/TerminalDisplay.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/TerminalDisplay.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/TerminalDisplay.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/TerminalDisplay~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/TerminalDisplay.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/main.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/main.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/main.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridge.build/main.swiftdeps"
+  }
+}

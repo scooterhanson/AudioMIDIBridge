@@ -1,0 +1,12 @@
+version: "Apple Swift version 5.7.2 (swiftlang-5.7.2.135.5 clang-1400.0.29.51)"
+options: "6dd719226eb82403e10830062da045923f2f42c60c98192980903f0ef969f872"
+build_start_time: [1784102593, 869893074]
+build_end_time: [1784102595, 977550029]
+inputs:
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/AudioEngine.swift": [1784102240, 187865257]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/Config.swift": [1784102240, 188241958]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/EnergyTracker.swift": [1784102240, 188585281]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/MIDIOutput.swift": [1784102240, 188906908]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/TempoDetector.swift": [1784102240, 189213275]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/TerminalDisplay.swift": [1784102419, 69879531]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridge/main.swift": !private [1784102419, 70553779]

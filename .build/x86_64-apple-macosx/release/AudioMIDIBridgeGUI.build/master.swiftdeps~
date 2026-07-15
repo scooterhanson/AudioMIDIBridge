@@ -1,0 +1,20 @@
+version: "Apple Swift version 5.7.2 (swiftlang-5.7.2.135.5 clang-1400.0.29.51)"
+options: "7a28e961a46ab974bc08bf142088c2e85b9db633d2fb8ee7e27f4c6d5583305c"
+build_start_time: [1784102447, 199929952]
+build_end_time: [1784102448, 269253015]
+inputs:
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/AppController.swift": !dirty [1784102419, 73276042]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/AudioMIDIBridgeGUIApp.swift": !dirty [1784102419, 72623252]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/ConfigFileWriter.swift": !dirty [1784102419, 71925163]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/AppFont.swift": !dirty [1784102419, 82660675]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/CalibratePanel.swift": !dirty [1784102419, 79492330]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/ContentView.swift": !dirty [1784102419, 81401824]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/HistoryPanel.swift": !dirty [1784102419, 74899673]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/MeterGaugeView.swift": !dirty [1784102419, 78606128]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/MidiMappingPanel.swift": !dirty [1784102419, 75963497]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/PickerRow.swift": !dirty [1784102419, 80823898]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/PulsingThresholdSliderRow.swift": !dirty [1784102419, 76632022]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/SliderRow.swift": !dirty [1784102419, 75411081]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/StatusPanel.swift": !dirty [1784102419, 77530860]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/ThresholdsPanel.swift": !dirty [1784102419, 80114126]
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeGUI/Views/TuningRecommendationsBanner.swift": !dirty [1784102419, 82000255]

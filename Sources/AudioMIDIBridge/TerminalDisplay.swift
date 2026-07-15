@@ -1,5 +1,6 @@
 import Foundation
 import QuartzCore
+import AudioMIDIBridgeCore
 
 // ---------------------------------------------------------------------------
 // Terminal display — updates in-place using ANSI escape codes.
@@ -18,6 +19,7 @@ final class TerminalDisplay {
     private var silenceTime:     Double  = 0
     private var lastNoteSent:    String  = "None"
     private var lastBufferedEnergy: Double = 0
+    private var cycleBeatsRemaining: Int?  = nil
     private var startTime:       Double  = CACurrentMediaTime()
     private var beatFlash:       Bool    = false
     private var beatFlashExpiry: Double  = 0
@@ -38,7 +40,7 @@ final class TerminalDisplay {
     func update(frame: AudioFrame, bpm: Double, level: String,
                 isSilent: Bool, levelChanged: Bool,
                 playTime: Double, silenceTime: Double, lastNote: String,
-                bufferedEnergy: Double) {
+                bufferedEnergy: Double, cycleBeatsRemaining: Int?) {
         frameCount += 1
         lastBPM     = bpm
         lastEnergy  = frame.rms
@@ -49,6 +51,7 @@ final class TerminalDisplay {
         self.silenceTime = silenceTime
         self.lastNoteSent = lastNote
         self.lastBufferedEnergy = bufferedEnergy
+        self.cycleBeatsRemaining = cycleBeatsRemaining
 
         if beatFlash && CACurrentMediaTime() > beatFlashExpiry {
             beatFlash = false
@@ -97,12 +100,16 @@ final class TerminalDisplay {
         let beat    = beatFlash ? yellow(" ♩") : "  "
         out += "Tempo   : \(cyan(bpmStr))\(beat)\n"
 
+        // ── Next note cycle countdown ───────────────────────────────────────
+        let cycleStr = cycleBeatsRemaining.map { "\($0) beat\($0 == 1 ? "" : "s")" } ?? "—"
+        out += "Cycle   : \(cycleStr)\n"
+
         // ── Energy ──────────────────────────────────────────────────────────
-        let rmsPercent = min(100, Int(lastEnergy * 1000))
+        let rmsPercent = clampedInt(lastEnergy * 1000, min: 0, max: 100)
         let bar = energyBar(value: lastEnergy, width: 30)
         out += String(format: "Energy  : %@ %3d%%  %@\n",
                       bar, rmsPercent, bold(lastLevel))
-        let bufferedPercent = min(100, Int(lastBufferedEnergy * 1000))
+        let bufferedPercent = clampedInt(lastBufferedEnergy * 1000, min: 0, max: 100)
         let bufferedBar = energyBar(value: lastBufferedEnergy, width: 30)
         out += String(format: "Buffered: %@ %3d%%\n",
                       bufferedBar, bufferedPercent)
@@ -110,9 +117,9 @@ final class TerminalDisplay {
         // ── Frequency Bands ─────────────────────────────────────────────────
         out += "\n" + dim("Frequency Bands:") + "\n"
         for name in bandNames {
-            let e   = lastBandStrings[name] ?? 0
+            let e   = safeDouble(lastBandStrings[name] ?? 0)
             let bar = miniBar(value: min(1.0, e * 4), width: 20)
-            let pct = min(100, Int(e * 400))
+            let pct = clampedInt(e * 400, min: 0, max: 100)
             out += String(format: "  %-8s %@ %3d%%\n",
                           (name as NSString).utf8String!, bar, pct)
         }
@@ -148,7 +155,7 @@ final class TerminalDisplay {
     // MARK: - Bars
 
     private func energyBar(value: Double, width: Int) -> String {
-        let filled = min(width, Int(value * Double(width) * 8))
+        let filled = clampedInt(value * Double(width) * 8, min: 0, max: width)
         let chars  = filled / 8
         let remainder = filled % 8
         let blocks = ["▏","▎","▍","▌","▋","▊","▉","█"]
@@ -163,7 +170,7 @@ final class TerminalDisplay {
     }
 
     private func miniBar(value: Double, width: Int) -> String {
-        let filled = min(width, Int(value * Double(width)))
+        let filled = clampedInt(value * Double(width), min: 0, max: width)
         let bar    = String(repeating: "▪", count: filled) +
                      String(repeating: "·", count: max(0, width - filled))
         return value > 0.5 ? yellow(bar) : dim(bar)

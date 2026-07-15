@@ -19,11 +19,27 @@ hop_size = 512
 
 # Silence threshold — RMS below this = "no music"
 # Range 0.0–1.0. Start at 0.01 and tune to your room noise floor.
-silence_threshold = 0.01
+silence_threshold = 0.018874
 
 # How many consecutive silent frames before "no music" is declared
 # At 512 hop / 44100 sr, each frame ~11ms. 200 frames ≈ 2.2 seconds.
 silence_holdoff_frames = 200
+
+# Manual input gain (linear multiplier, 1.0 = unity). Raise this if your
+# microphone is insensitive and the energy level never leaves "low".
+# Combines multiplicatively with auto-gain below.
+input_gain = 1.0
+
+# Auto-gain: on startup, measures ambient room noise for
+# auto_gain_calibration_ms and boosts input so that ambient level
+# normalizes to just under silence_threshold — this compensates for
+# quiet/insensitive microphones automatically. Assumes the room is at
+# a quiet/silent point when the app starts.
+auto_gain_enabled = true
+auto_gain_calibration_ms = 1500
+# Safety cap on how much auto-gain can boost input (prevents a very quiet
+# room from being amplified into constant noise/clipping).
+auto_gain_max = 25.0
 
 [frequency_bands]
 # Define named frequency bands to monitor independently.
@@ -44,16 +60,27 @@ bpm_min = 60
 bpm_max = 180
 
 # Onset detection sensitivity (0.0–1.0). Higher = more sensitive, more false positives.
+# Onset/beat detection tracks the "kick" frequency band specifically (see
+# [frequency_bands] above) rather than the full spectrum, since the kick
+# drum is a far more reliable tempo reference than broadband onset, which
+# hi-hats/vocals/other transients can just as easily trigger. Falls back
+# to the full spectrum if no band named "kick" is configured.
 onset_sensitivity = 0.5
 
-# How many beats to average for BPM stability
-bpm_smoothing_beats = 8
+# How many recent kick-drum hits the tempo estimate is built from. Tempo
+# detection identifies kick hits, forms an initial estimate from the first
+# couple of them, then refines it as more hits arrive — kick patterns don't
+# need to land on every beat (syncopation is expected and handled), so this
+# is "how many hits of history to consider," not "how many beats." Since a
+# song almost always holds one tempo throughout, the estimate settles and
+# stays there well before this many hits are collected; raise it for a
+# slower/steadier response, lower it to adapt faster to genuine tempo changes.
+bpm_smoothing_beats = 16
 
 # MIDI note sent as a "tap" on each detected beat
 # This is a short note-on burst (duration = tap_note_duration_ms)
 tap_note = 52
 tap_channel = 0
-tap_velocity = 100
 tap_note_duration_ms = 20
 
 [energy]
@@ -63,114 +90,111 @@ tap_note_duration_ms = 20
 
 # Minimum beats between stable energy cycle notes.
 # Realtime peak/trough note jumps can fire sooner when thresholds are crossed.
-cycle_beats = 16
+cycle_beats = 48
 
 # Realtime peak/trough thresholds for immediate note jumps.
-baseline_threshold = 0.05
-peak_threshold = 0.25
+baseline_threshold = 0.192148
+peak_threshold = 0.637356
 peak_note = -1
 peak_channel = 2
-peak_velocity = 100
 trough_note = -1
 trough_channel = 2
-trough_velocity = 100
 
-# Each level: [min_rms_0_to_1, midi_note, midi_channel, velocity]
-# Levels are checked in order; first match wins.
-# The crossfade duration sent is derived from current BPM (one bar = 4 beats).
+# Each level has only a lower boundary (min_rms). A level's effective upper
+# bound is always the NEXT level's min_rms — there's no independent max_rms
+# to configure, so levels can never gap or overlap. Levels are checked in
+# ascending min_rms order. "silent" is always "everything below low's
+# min_rms" — its own min_rms is unused (kept at 0.0 for clarity). The last
+# level (very_high) has no upper bound.
 
 [[energy.levels]]
 name       = "silent"
 min_rms    = 0.0
-max_rms    = 0.01
-midi_note  = 0
-channel    = 2
-velocity   = 0
+midi_notes = [0]
+channel    = 16
 
 [[energy.levels]]
 name       = "low"
-min_rms    = 0.01
-max_rms    = 0.08
-midi_notes = [36, 38, 40]
-channel    = 2
-velocity   = 40
+min_rms    = 0.165456
+midi_notes = [36, 38, 40, 36, 38, 40, 36, 38, 40]
+channel    = 16
 
 [[energy.levels]]
 name       = "medium"
-min_rms    = 0.08
-max_rms    = 0.20
-midi_notes = [37, 39, 41]
-channel    = 2
-velocity   = 80
+min_rms    = 0.365152
+midi_notes = [37, 38, 41, 37, 38, 41, 37, 38, 41]
+channel    = 16
 
 [[energy.levels]]
 name       = "high"
-min_rms    = 0.20
-max_rms    = 0.50
-midi_note  = 38
-channel    = 2
-velocity   = 110
+min_rms    = 0.649967
+midi_notes = [38, 38, 38, 38, 38, 38]
+channel    = 16
 
 [[energy.levels]]
 name       = "very_high"
-min_rms    = 0.50
-max_rms    = 1.0
-midi_note  = 39
-channel    = 2
-velocity   = 127
+min_rms    = 0.869308
+midi_notes = [39, 39, 39, 39, 39, 39]
+channel    = 16
 
 [energy.smoothing]
 # Attack / release times for energy envelope (in frames)
 # Low attack = snappy response; high release = slower decay
-attack_frames  = 3
-release_frames = 30
+attack_frames  = 8
+release_frames = 86
 
 # Hysteresis: energy must exceed a level's threshold by this much
 # before triggering (prevents rapid scene-switching at boundaries)
-hysteresis = 0.02
+hysteresis = 0.092333
+
+# How long a window (in ms) the energy level decision averages over, on
+# top of the attack/release envelope above. Raising this smooths out short
+# transient spikes before they can flip the buffered energy level — the
+# main lever if levels are still switching too fast even with generous
+# hysteresis/release.
+buffer_duration_ms = 1841
 
 [silence]
 # MIDI note sent when no music is detected
 midi_note  = 127
-channel    = 2
-velocity   = 0
+channel    = 16
 # Note sent when music resumes after silence
 resume_note     = 126
-resume_channel  = 2
-resume_velocity = 64
+resume_channel  = 16
 
 [band_triggers]
+# Master on/off switch. When false, none of the per-band triggers below
+# ever fire — only the energy-level (Low/Medium/High/...) triggers remain
+# active. Live-adjustable from the GUI.
+enabled = false
+
 # Per-band MIDI notes. When a band's energy exceeds its threshold,
 # a note-on is sent. Note-off fires after trigger_duration_ms.
 trigger_duration_ms = 30
 
 [[band_triggers.bands]]
 name      = "kick"
-threshold = 0.15
+threshold = 0.0
 midi_note = 48
 channel   = 3
-velocity_scale = 1.0   # multiply detected energy (0–1) by 127
 
 [[band_triggers.bands]]
 name      = "snare"
-threshold = 0.12
+threshold = 0.8434
 midi_note = 49
 channel   = 3
-velocity_scale = 1.0
 
 [[band_triggers.bands]]
 name      = "hihat"
-threshold = 0.08
+threshold = 0.0
 midi_note = 50
 channel   = 3
-velocity_scale = 0.8
 
 [[band_triggers.bands]]
 name      = "bass"
-threshold = 0.10
+threshold = 0.0
 midi_note = 51
 channel   = 3
-velocity_scale = 1.0
 
 [crossfade]
 # When energy level changes, a crossfade CC is sent so the lighting
@@ -179,7 +203,7 @@ velocity_scale = 1.0
 cc_number  = 20
 channel    = 2
 # Fixed crossfade beats when BPM is unknown
-default_beats = 4
+default_beats = 31
 
 [calibration]
 # Path to a calibration audio file for --calibrate mode.

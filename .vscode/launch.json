@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AudioMIDIBridge}",
+            "name": "Debug AudioMIDIBridge",
+            "target": "AudioMIDIBridge",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug AudioMIDIBridge"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AudioMIDIBridge}",
+            "name": "Release AudioMIDIBridge",
+            "target": "AudioMIDIBridge",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release AudioMIDIBridge"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AudioMIDIBridge}",
+            "name": "Debug AudioMIDIBridgeGUI",
+            "target": "AudioMIDIBridgeGUI",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug AudioMIDIBridgeGUI"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AudioMIDIBridge}",
+            "name": "Release AudioMIDIBridgeGUI",
+            "target": "AudioMIDIBridgeGUI",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release AudioMIDIBridgeGUI"
+        }
+    ]
+}

@@ -1,0 +1,53 @@
+{
+  "": {
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/master.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/AudioEngine.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/AudioEngine.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/AudioEngine.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/AudioEngine~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/AudioEngine.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/Calibration.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Calibration.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Calibration.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Calibration~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Calibration.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/Config.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Config.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Config.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Config~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Config.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/EnergyNoteCycler.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyNoteCycler.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyNoteCycler.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyNoteCycler~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyNoteCycler.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/EnergyTracker.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyTracker.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyTracker.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyTracker~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/EnergyTracker.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/MIDIOutput.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/MIDIOutput.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/MIDIOutput.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/MIDIOutput~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/MIDIOutput.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/Safety.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Safety.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Safety.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Safety~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/Safety.swiftdeps"
+  },
+  "/Users/scooter/dev/AudioMIDIBridge/Sources/AudioMIDIBridgeCore/TempoDetector.swift": {
+    "dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/TempoDetector.d",
+    "object": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/TempoDetector.swift.o",
+    "swiftmodule": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/TempoDetector~partial.swiftmodule",
+    "swift-dependencies": "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/TempoDetector.swiftdeps"
+  }
+}

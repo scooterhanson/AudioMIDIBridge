@@ -1,0 +1,4 @@
+module AudioMIDIBridgeCore {
+    header "/Users/scooter/dev/AudioMIDIBridge/.build/x86_64-apple-macosx/debug/AudioMIDIBridgeCore.build/AudioMIDIBridgeCore-Swift.h"
+    requires objc
+}

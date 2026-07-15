@@ -1,6 +1,6 @@
 # AudioMIDIBridge
 
-A macOS command-line tool (Monterey 12+) that listens to audio input, analyses tempo and energy in real time, and emits MIDI notes/CCs on a virtual CoreMIDI port. Designed to drive DMX lighting software via MIDI without needing a dedicated DJ controller.
+A macOS tool (Monterey 12+) that listens to audio input, analyses tempo and energy in real time, and emits MIDI notes/CCs on a virtual CoreMIDI port. Designed to drive DMX lighting software via MIDI without needing a dedicated DJ controller. Ships as both a command-line dashboard (`AudioMIDIBridge`) and a native GUI (`AudioMIDIBridgeGUI`) — both run the identical audio/MIDI engine, packaged as the `AudioMIDIBridgeCore` library.
 
 ---
 
@@ -25,8 +25,9 @@ All output appears on a virtual MIDI source named **"AudioMIDIBridge"** — conn
 ```bash
 cd AudioMIDIBridge
 swift build -c release
-# Binary at:
-.build/release/AudioMIDIBridge
+# Binaries at:
+.build/release/AudioMIDIBridge       # CLI + terminal dashboard
+.build/release/AudioMIDIBridgeGUI    # native GUI
 ```
 
 Or open in Xcode:
@@ -65,6 +66,29 @@ On first run macOS will prompt for microphone access. If it doesn't, grant it ma
 # Run headless (no terminal dashboard, plain log output)
 .build/release/AudioMIDIBridge --no-display
 ```
+
+---
+
+## GUI
+
+```bash
+# Default config (./config.toml)
+.build/release/AudioMIDIBridgeGUI
+
+# Custom config (positional argument, no flag)
+.build/release/AudioMIDIBridgeGUI /path/to/my.toml
+```
+
+The GUI runs the same engine as the CLI (starts listening immediately) and adds:
+
+- **Analog meters** for realtime and buffered energy, with green/yellow/red zones driven by the live `baseline_threshold`/`peak_threshold`.
+- **Threshold sliders** — `silence_threshold`, `baseline_threshold`, `peak_threshold`, and each energy level's `min_rms`/`max_rms` — take effect immediately on the running engine, no restart.
+- **Save** writes only the changed value tokens back into `config.toml` in place, preserving all comments and formatting. **Revert** reloads those same values from whatever is currently on disk, discarding unsaved slider changes.
+- **History** of the last 5 energy-level transitions with duration and MIDI note sent.
+- **Frequency bands**, **status/play time/silence time/tempo**, and the resolved **audio input** / **MIDI output** are all displayed read-only.
+- **Calibrate…** runs the same analysis as `--calibrate` against `calibration.audio_file`, after a confirmation dialog (shown the configured file path) warning that applying the recommendations will overwrite current, unsaved threshold adjustments. Applying is still a live-only change until you press Save.
+
+Note: audio input device selection and MIDI note/channel assignments are fixed at launch (from config.toml) and aren't editable from the GUI — only the threshold values above are live-adjustable.
 
 ---
 
