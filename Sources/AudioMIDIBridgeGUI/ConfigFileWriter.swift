@@ -138,6 +138,16 @@ enum ConfigFileWriter {
                 lines[i] = replacingValue(in: rawLine, newValue: String(cfg.energy.troughNote))
             case ("energy", "trough_channel"):
                 lines[i] = replacingValue(in: rawLine, newValue: String(cfg.energy.troughChannel))
+            case ("energy", "low_bpm_cap_threshold"):
+                lines[i] = replacingValue(in: rawLine, newValue: formatNumber(cfg.energy.lowBpmCapThreshold))
+            case ("energy", "medium_bpm_cap_threshold"):
+                lines[i] = replacingValue(in: rawLine, newValue: formatNumber(cfg.energy.mediumBpmCapThreshold))
+            case ("energy", "bpm_cap_hysteresis"):
+                lines[i] = replacingValue(in: rawLine, newValue: formatNumber(cfg.energy.bpmCapHysteresis))
+            case ("energy", "band_activity_boost_band_count"):
+                lines[i] = replacingValue(in: rawLine, newValue: String(cfg.energy.bandActivityBoostBandCount))
+            case ("energy", "band_activity_boost_levels"):
+                lines[i] = replacingValue(in: rawLine, newValue: String(cfg.energy.bandActivityBoostLevels))
             case ("silence", "midi_note"):
                 lines[i] = replacingValue(in: rawLine, newValue: String(cfg.silence.midiNote))
             case ("silence", "channel"):

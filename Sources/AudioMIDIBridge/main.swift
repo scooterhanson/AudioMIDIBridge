@@ -11,7 +11,7 @@ import AudioMIDIBridgeCore
 
 func printHelp() {
     print("""
-    AudioMIDIBridge — Audio-reactive MIDI controller for macOS
+    AudioMIDIBridge \(appVersion) — Audio-reactive MIDI controller for macOS
 
     USAGE:
       AudioMIDIBridge [OPTIONS]
@@ -24,6 +24,7 @@ func printHelp() {
       --gain <value>      Manual input gain multiplier (overrides config.toml input_gain)
       --calibrate          Run calibration mode using the audio file referenced in config.toml
       --no-display        Suppress the live terminal dashboard
+      -v, --version       Print the version and exit
       -h, --help          Show this help
 
     DESCRIPTION:
@@ -74,6 +75,8 @@ while let arg = args.first {
     switch arg {
     case "--help", "-h":
         printHelp(); exit(0)
+    case "--version", "-v":
+        print("AudioMIDIBridge \(appVersion)"); exit(0)
     case "--list-audio":
         listAudioInputDevices(); exit(0)
     case "--list-midi":
@@ -114,6 +117,12 @@ do {
     cfg = ConfigParser.loadDefault()
 }
 
+let configValidation = ConfigValidator.validate(cfg)
+cfg = configValidation.config
+for warning in configValidation.warnings {
+    fputs("[CONFIG WARNING] \(warning)\n", stderr)
+}
+
 if !deviceID.isEmpty {
     cfg.audio.inputDevice = deviceID
 }
@@ -140,6 +149,29 @@ do {
     fputs("MIDI init failed: \(error.localizedDescription)\n", stderr)
     exit(1)
 }
+midi.onReconnect = {
+    let msg = "[MIDI] Reconnected after a system reset"
+    if showDisplay { fputs(msg + "\n", stderr) } else { print(msg) }
+}
+
+/// A timestamped path next to config.toml, e.g.
+/// ".../midi_events_20260718_213045.csv" — used for both the
+/// continuously-written event log and the on-demand chart PNG, so every
+/// session's artifacts sort together and never collide with another
+/// session's.
+func sessionFilePath(nextTo configPath: String, prefix: String, suffix: String) -> String {
+    let dir = URL(fileURLWithPath: configPath).deletingLastPathComponent()
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyyMMdd_HHmmss"
+    let stamp = formatter.string(from: Date())
+    return dir.appendingPathComponent("\(prefix)_\(stamp).\(suffix)").path
+}
+
+// Records every MIDI note-on for later manual chart generation (see
+// ChartRenderer, invoked on graceful shutdown below) — never for live
+// display. Recording is fire-and-forget and runs on its own background
+// queue, so it can never affect MIDI delivery even if the CSV write fails.
+let eventLog = MidiEventLog(csvPath: sessionFilePath(nextTo: configPath, prefix: "midi_events", suffix: "csv"))
 
 // Subsystems
 let tempo    = TempoDetector(cfg: cfg.tempo,
@@ -174,8 +206,9 @@ let energyNoteCycler = EnergyNoteCycler()
 // fires.
 var cycleBeatsRemaining: Int? = nil
 
-func sendNoteOn(channel: Int, note: Int, durationMs: Int) {
+func sendNoteOn(channel: Int, note: Int, durationMs: Int, source: String) {
     midi.noteOnTimed(channel: channel, note: note, velocity: defaultNoteVelocity, durationMs: durationMs)
+    eventLog.record(note: note, channel: channel, velocity: defaultNoteVelocity, source: source)
     lastSentNoteDesc = "ch\(channel) note\(note)"
 }
 
@@ -195,7 +228,7 @@ func maybeSendEnergyCycleNote(now: Double) {
     let threshold      = Double(cfg.energy.cycleBeats) * secondsPerBeat
     if now - stableLevelSince >= threshold {
         let nextNote = energyNoteCycler.advance(for: level)
-        sendNoteOn(channel: level.channel, note: nextNote, durationMs: 50)
+        sendNoteOn(channel: level.channel, note: nextNote, durationMs: 50, source: "energy:\(level.name)")
         let msg = "[CYCLE] Stable energy level '\(level.name)' for \(cfg.energy.cycleBeats) beats — sent note \(nextNote)"
         if showDisplay {
             fputs(msg + "\n", stderr)
@@ -215,7 +248,7 @@ func maybeSendEnergyCycleNote(now: Double) {
 tempo.onBeat = { bpm in
     sendNoteOn(channel: cfg.tempo.tapChannel,
                note: cfg.tempo.tapNote,
-               durationMs: cfg.tempo.tapDurationMs)
+               durationMs: cfg.tempo.tapDurationMs, source: "tap")
     display?.signalBeat()
 
     if showDisplay {
@@ -240,7 +273,7 @@ energy.onLevelChange = { level, index in
     let note = energyNoteCycler.advance(for: level)
     sendNoteOn(channel: level.channel,
                note: note,
-               durationMs: 50)
+               durationMs: 50, source: "energy:\(level.name)")
 
     // Crossfade CC — value encodes duration hint
     let cfVal = tempo.crossfadeCCValue(beats: cfg.crossfade.defaultBeats)
@@ -257,7 +290,7 @@ energy.onLevelChange = { level, index in
 }
 
 energy.onPeakTrigger = { note, channel in
-    sendNoteOn(channel: channel, note: note, durationMs: 50)
+    sendNoteOn(channel: channel, note: note, durationMs: 50, source: "peak")
     let msg = "[PEAK] Realtime jump to peak threshold — note=\(note)"
     if showDisplay {
         fputs(msg + "\n", stderr)
@@ -267,7 +300,7 @@ energy.onPeakTrigger = { note, channel in
 }
 
 energy.onTroughTrigger = { note, channel in
-    sendNoteOn(channel: channel, note: note, durationMs: 50)
+    sendNoteOn(channel: channel, note: note, durationMs: 50, source: "trough")
     let msg = "[TROUGH] Realtime drop to baseline threshold — note=\(note)"
     if showDisplay {
         fputs(msg + "\n", stderr)
@@ -285,7 +318,7 @@ energy.onSilenceBegin = {
 
     sendNoteOn(channel: cfg.silence.channel,
                note: cfg.silence.midiNote,
-               durationMs: 100)
+               durationMs: 100, source: "silence")
 
     let msg = "[SILENCE] Music stopped — reset note \(cfg.silence.midiNote) sent"
     if showDisplay {
@@ -303,7 +336,7 @@ energy.onSilenceEnd = {
 
     sendNoteOn(channel: cfg.silence.resumeChannel,
                note: cfg.silence.resumeNote,
-               durationMs: 50)
+               durationMs: 50, source: "resume")
 
     let msg = "[RESUME] Music detected — resume note \(cfg.silence.resumeNote) sent"
     if showDisplay {
@@ -317,13 +350,30 @@ energy.onSilenceEnd = {
 bands.onTrigger = { trigger in
     sendNoteOn(channel: trigger.channel,
                note: trigger.midiNote,
-               durationMs: cfg.bandTriggers.triggerDurationMs)
+               durationMs: cfg.bandTriggers.triggerDurationMs, source: "band:\(trigger.name)")
 }
 
 // Audio frame → all subsystems
 audio.onFrame = { frame in
-    tempo.feed(frame: frame)
+    // Give energy the current tempo estimate and band-trigger activity
+    // before feeding it, so its tempo cap and band-activity boost (see
+    // EnergyConfig) both see up-to-date values — one frame stale at most,
+    // same as bpm below, since bands hasn't fed this frame's bandEnergies
+    // yet either. energy.feed() itself runs before tempo.feed() below so
+    // its silence state is current-frame-fresh, rather than a frame stale,
+    // when we decide whether to feed tempo.
+    energy.bpm = tempo.bpm
+    energy.bandActiveCount = bands.activeBandCount
     energy.feed(rms: frame.rms)
+    // Suspend tempo tracking entirely during silence — not just a one-time
+    // reset() on silence begin (see energy.onSilenceBegin above). Without
+    // this, any residual noise (room hum, HVAC, reverb tail, mic
+    // self-noise) can still register as a fresh onset and have
+    // TempoDetector re-establish a bogus tempo and start firing onBeat
+    // again, i.e. "tempo keeps tapping after the music stops."
+    if !energy.silent {
+        tempo.feed(frame: frame)
+    }
     bands.feed(bandEnergies: frame.bandEnergies)
 
     let now = frame.timestamp
@@ -360,6 +410,46 @@ do {
     exit(1)
 }
 
+// MARK: - Audio pipeline watchdog
+
+// Checks once/sec whether onFrame has gone quiet for longer than makes
+// sense while running — onFrame fires continuously regardless of musical
+// silence (silence only changes what EnergyTracker does with the RMS, not
+// whether frames arrive), so this only fires on a genuine pipeline failure:
+// a disconnected interface, a route change AVAudioEngine didn't recover
+// from, etc. Recovery attempts are cooled down separately from the 1s check
+// interval so a persistent stall doesn't hammer stop()/start().
+var isAudioStalled = false
+var lastWatchdogRecoveryAttempt: Double = 0
+let watchdogStallThreshold: Double = 3.0
+let watchdogRecoveryCooldown: Double = 5.0
+
+let watchdogSource = DispatchSource.makeTimerSource(queue: .main)
+watchdogSource.schedule(deadline: .now() + 1, repeating: 1.0)
+watchdogSource.setEventHandler {
+    let now = CACurrentMediaTime()
+    guard now - lastFrameTimestamp > watchdogStallThreshold else {
+        isAudioStalled = false
+        return
+    }
+    if !isAudioStalled {
+        isAudioStalled = true
+        let msg = "[WATCHDOG] No audio frames received for \(Int(watchdogStallThreshold))s — attempting recovery"
+        if showDisplay { fputs(msg + "\n", stderr) } else { print(msg) }
+    }
+    guard now - lastWatchdogRecoveryAttempt > watchdogRecoveryCooldown else { return }
+    lastWatchdogRecoveryAttempt = now
+    audio.stop()
+    do {
+        try audio.start()
+        let msg = "[WATCHDOG] Audio engine restarted"
+        if showDisplay { fputs(msg + "\n", stderr) } else { print(msg) }
+    } catch {
+        fputs("[WATCHDOG] Recovery failed: \(error.localizedDescription)\n", stderr)
+    }
+}
+watchdogSource.resume()
+
 if showDisplay {
     // Header already printed by TerminalDisplay init
 } else {
@@ -367,17 +457,48 @@ if showDisplay {
     print("Press Ctrl-C to quit.")
 }
 
-// MARK: - Graceful shutdown on Ctrl-C
+// MARK: - Graceful shutdown on Ctrl-C or termination
 
-let sigSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
-signal(SIGINT, SIG_IGN)
-sigSource.setEventHandler {
+// Handles both SIGINT (Ctrl-C, the interactive case) and SIGTERM (what a
+// process supervisor or a plain `kill` sends by default) identically —
+// without a SIGTERM handler, running this under any kind of supervisor
+// (launchd, a show-control script, etc.) would skip this whole path
+// entirely: no silence note-off, no session chart, and the event log left
+// without an explicit close.
+func gracefulShutdown() -> Never {
     print("\nShutting down…")
     audio.stop()
     midi.noteOff(channel: cfg.silence.channel, note: cfg.silence.midiNote)
+    eventLog.close()
+
+    // Chart generation only ever happens here, once, after the session has
+    // genuinely ended (audio is already stopped) — never during the
+    // performance itself. A generation failure is reported but never
+    // treated as fatal; the CSV log (written continuously throughout the
+    // session, independent of this) is what actually matters for failsafe
+    // record-keeping.
+    let entries = eventLog.entries
+    if !entries.isEmpty {
+        let chartPath = sessionFilePath(nextTo: configPath, prefix: "midi_timeline", suffix: "png")
+        do {
+            try ChartRenderer.renderTimelinePNG(entries: entries, to: chartPath)
+            print("Session timeline chart saved to: \(chartPath)")
+        } catch {
+            fputs("Could not generate session timeline chart: \(error.localizedDescription)\n", stderr)
+        }
+    }
     exit(0)
 }
-sigSource.resume()
+
+let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+signal(SIGINT, SIG_IGN)
+sigIntSource.setEventHandler { gracefulShutdown() }
+sigIntSource.resume()
+
+let sigTermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+signal(SIGTERM, SIG_IGN)
+sigTermSource.setEventHandler { gracefulShutdown() }
+sigTermSource.resume()
 
 // MARK: - Run loop
 

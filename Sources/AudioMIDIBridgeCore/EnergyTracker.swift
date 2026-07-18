@@ -32,6 +32,27 @@ public final class EnergyTracker {
     public var troughNote: Int
     public var troughChannel: Int
 
+    // Tempo-based energy ceiling (see EnergyConfig for the exact rule).
+    // `bpm` is written every audio frame by whoever owns the TempoDetector
+    // (AppController / main.swift), since EnergyTracker has no tempo
+    // awareness of its own.
+    public var bpm: Double = 0
+    public var lowBpmCapThreshold: Double
+    public var mediumBpmCapThreshold: Double
+    public var bpmCapHysteresis: Double
+
+    // Band-activity level boost (see EnergyConfig). `bandActiveCount` is
+    // written every audio frame by whoever owns the BandTriggerTracker
+    // (AppController / main.swift), mirroring how `bpm` is fed in above.
+    public var bandActiveCount: Int = 0
+    public var bandActivityBoostBandCount: Int
+    public var bandActivityBoostLevels: Int
+
+    // 0 = capped at "low", 1 = capped at "medium", 2 = uncapped. Persists
+    // across frames so relaxing the cap can require clearing a threshold by
+    // `bpmCapHysteresis` — see updateCapTier().
+    private var capTier: Int = 2
+
     // Also live-adjustable, but resizing the averaging window means
     // reallocating the ring buffer below — unlike the plain scalars above,
     // that can't just be written from any thread. `feed()` (always on the
@@ -93,6 +114,13 @@ public final class EnergyTracker {
         self.peakChannel     = cfg.peakChannel
         self.troughNote      = cfg.troughNote
         self.troughChannel   = cfg.troughChannel
+
+        self.lowBpmCapThreshold    = cfg.lowBpmCapThreshold
+        self.mediumBpmCapThreshold = cfg.mediumBpmCapThreshold
+        self.bpmCapHysteresis      = cfg.bpmCapHysteresis
+
+        self.bandActivityBoostBandCount = cfg.bandActivityBoostBandCount
+        self.bandActivityBoostLevels    = cfg.bandActivityBoostLevels
 
         self.sampleRateHz   = sampleRate
         self.hopSizeSamples = hopSize
@@ -181,8 +209,18 @@ public final class EnergyTracker {
 
         guard !isSilent else { return }
 
-        // Find matching energy level from buffered energy
-        let newIndex = levelIndex(for: bufferedEnergy)
+        // Find matching energy level from buffered energy, bump it up if
+        // enough band triggers are simultaneously active, then clamp the
+        // result to whatever the current tempo allows (see bpmCapIndex) —
+        // the tempo cap is always the final, hard ceiling regardless of
+        // what elevated the level.
+        var newIndex = levelIndex(for: bufferedEnergy)
+        if bandActivityBoostBandCount > 0, bandActiveCount >= bandActivityBoostBandCount {
+            newIndex = min(newIndex + bandActivityBoostLevels, levels.count - 1)
+        }
+        if let cap = bpmCapIndex(), newIndex > cap {
+            newIndex = cap
+        }
         guard newIndex != currentLevelIndex else { return }
 
         // Hysteresis: require bufferedEnergy — the same value that decided
@@ -225,6 +263,48 @@ public final class EnergyTracker {
         return index
     }
 
+    /// The highest level index the current tempo allows, or nil if no cap
+    /// applies (tempo unknown, or fast enough to clear both thresholds).
+    /// BPM 0 means no tempo estimate exists yet — treated as "unknown," not
+    /// "slow," so a fresh session/silence-reset doesn't get stuck capped
+    /// before the first tempo estimate arrives.
+    private func bpmCapIndex() -> Int? {
+        updateCapTier()
+        switch capTier {
+        case 0:  return levels.firstIndex { $0.name.caseInsensitiveCompare("low") == .orderedSame }
+        case 1:  return levels.firstIndex { $0.name.caseInsensitiveCompare("medium") == .orderedSame }
+        default: return nil
+        }
+    }
+
+    /// Advances `capTier` by at most one step per call, toward wherever the
+    /// current BPM says it should be. Tightening the cap (tempo dropping
+    /// into a more restrictive tier) applies immediately; relaxing it
+    /// (tempo rising out of one) requires clearing the threshold by
+    /// `bpmCapHysteresis` first. Without that asymmetry, ordinary BPM
+    /// estimate jitter right at a threshold flickers the cap on/off every
+    /// frame, firing spurious level changes and resetting the cycle-beat
+    /// countdown far more often than the buffered energy level itself is
+    /// actually changing. One step per call is enough — feed() calls this
+    /// on every audio frame (dozens of times/sec), so even a large tempo
+    /// jump resolves within a few milliseconds.
+    private func updateCapTier() {
+        guard bpm > 0 else { capTier = 2; return }
+
+        switch capTier {
+        case 0:
+            if bpm >= lowBpmCapThreshold + bpmCapHysteresis { capTier = 1 }
+        case 1:
+            if bpm < lowBpmCapThreshold {
+                capTier = 0
+            } else if bpm >= mediumBpmCapThreshold + bpmCapHysteresis {
+                capTier = 2
+            }
+        default:
+            if bpm < mediumBpmCapThreshold { capTier = 1 }
+        }
+    }
+
     /// Reallocates the averaging ring buffer for a new window length.
     /// Only ever called from inside `feed()`, i.e. only from the audio
     /// thread — the buffer array itself is never touched from anywhere
@@ -258,6 +338,7 @@ public final class EnergyTracker {
         silentFrameCount  = 0
         isSilent          = false
         peakState         = .between
+        capTier           = 2
     }
 }
 
@@ -314,5 +395,17 @@ public final class BandTriggerTracker {
 
     public func reset() {
         for key in holdoff.keys { holdoff[key] = 0 }
+    }
+
+    /// How many configured bands are within their post-trigger holdoff
+    /// window right now — a lightweight proxy for "how many bands are
+    /// simultaneously active," reusing state already tracked for retrigger
+    /// suppression rather than computing anything new. Feeds EnergyTracker's
+    /// band-activity level boost (see EnergyConfig). Always 0 while
+    /// disabled, so toggling band triggers off also fully disengages the
+    /// boost rather than leaving it keyed off a stale holdoff snapshot.
+    public var activeBandCount: Int {
+        guard enabled else { return 0 }
+        return holdoff.values.filter { $0 > 0 }.count
     }
 }

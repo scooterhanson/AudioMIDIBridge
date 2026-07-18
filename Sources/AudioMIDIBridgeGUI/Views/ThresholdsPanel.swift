@@ -95,6 +95,19 @@ struct ThresholdsPanel: View {
             sliderRow(title: "Onset Sensitivity", value: controller.liveConfig.tempo.onsetSensitivity, range: 0...1.0) {
                 controller.setOnsetSensitivity($0)
             }
+            Text("Below the Low Cap BPM, energy can't exceed Low; below the Medium Cap BPM, it can't exceed Medium.")
+                .font(AppFont.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            sliderRow(title: "Low Cap BPM", value: controller.liveConfig.energy.lowBpmCapThreshold, range: 40...200) {
+                controller.setLowBpmCapThreshold($0)
+            }
+            sliderRow(title: "Medium Cap BPM", value: controller.liveConfig.energy.mediumBpmCapThreshold, range: 40...200) {
+                controller.setMediumBpmCapThreshold($0)
+            }
+            sliderRow(title: "Cap Hysteresis", value: controller.liveConfig.energy.bpmCapHysteresis, range: 0...20) {
+                controller.setBpmCapHysteresis($0)
+            }
         }
     }
 
@@ -128,6 +141,20 @@ struct ThresholdsPanel: View {
                 .disabled(!controller.liveConfig.bandTriggers.enabled)
                 .opacity(controller.liveConfig.bandTriggers.enabled ? 1.0 : 0.4)
             }
+            Text("While at least Boost Band Count of these bands are simultaneously active, the energy level is bumped up by Boost Levels (0 disables this).")
+                .font(AppFont.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            intSliderRow(title: "Boost Band Count", value: controller.liveConfig.energy.bandActivityBoostBandCount, range: 0...8) {
+                controller.setBandActivityBoostBandCount($0)
+            }
+            .disabled(!controller.liveConfig.bandTriggers.enabled)
+            .opacity(controller.liveConfig.bandTriggers.enabled ? 1.0 : 0.4)
+            intSliderRow(title: "Boost Levels", value: controller.liveConfig.energy.bandActivityBoostLevels, range: 1...4) {
+                controller.setBandActivityBoostLevels($0)
+            }
+            .disabled(!controller.liveConfig.bandTriggers.enabled)
+            .opacity(controller.liveConfig.bandTriggers.enabled ? 1.0 : 0.4)
         }
     }
 
@@ -141,6 +168,7 @@ struct ThresholdsPanel: View {
                     .disabled(!controller.hasUnsavedChanges)
                     .keyboardShortcut("s", modifiers: .command)
                 Spacer()
+                ChartPanel(controller: controller)
                 CalibratePanel(controller: controller)
             }
         }

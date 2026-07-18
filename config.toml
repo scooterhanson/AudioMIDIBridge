@@ -100,6 +100,29 @@ peak_channel = 2
 trough_note = -1
 trough_channel = 2
 
+# Tempo-based energy ceiling. While the detected BPM stays below
+# low_bpm_cap_threshold, the energy level is never allowed above the level
+# named "low"; below medium_bpm_cap_threshold, never above "medium". No cap
+# applies once tempo clears medium_bpm_cap_threshold, or while no tempo
+# estimate exists yet (BPM 0).
+low_bpm_cap_threshold = 95.0
+medium_bpm_cap_threshold = 115.0
+# Tempo must clear a cap threshold by this many BPM before the cap actually
+# relaxes (tightening is always immediate). Prevents ordinary BPM jitter
+# right at a threshold from flickering the cap — and the cycle-beat
+# countdown along with it — on and off every frame.
+bpm_cap_hysteresis = 3.0
+
+# Band-activity level boost: reuses [[band_triggers.bands]] below rather
+# than any new spectral analysis. While at least this many configured bands
+# are simultaneously within their post-trigger holdoff window (i.e.
+# recently/repeatedly triggering — busy cymbals/snare/etc.), the computed
+# energy level is bumped up by band_activity_boost_levels steps, before the
+# tempo cap above is applied as the final ceiling. 0 disables this
+# entirely; has no effect unless [band_triggers] enabled = true below.
+band_activity_boost_band_count = 2
+band_activity_boost_levels = 1
+
 # Each level has only a lower boundary (min_rms). A level's effective upper
 # bound is always the NEXT level's min_rms — there's no independent max_rms
 # to configure, so levels can never gap or overlap. Levels are checked in

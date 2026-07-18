@@ -109,6 +109,35 @@ public struct EnergyConfig {
     public var troughChannel: Int         = 2
     public var cycleBeats: Int            = 16
     public var cycleNotes: [Int]          = []
+
+    // Tempo-based energy ceiling: while the detected BPM stays below
+    // lowBpmCapThreshold, the energy level is never allowed above whichever
+    // level is named "low"; below mediumBpmCapThreshold (and at/above the
+    // low threshold), never above "medium". This assumes levels named
+    // "low"/"medium" exist — if neither is found, the corresponding cap
+    // simply doesn't apply. BPM 0 (no tempo established yet) is treated as
+    // "unknown," not "slow," so no cap applies until a real estimate exists.
+    public var lowBpmCapThreshold: Double    = 95
+    public var mediumBpmCapThreshold: Double = 115
+    // Margin (in BPM) the tempo must clear a cap threshold by, in the
+    // direction that RELAXES the cap, before it actually takes effect —
+    // tightening the cap is immediate. Without this, ordinary BPM estimate
+    // jitter right around a threshold flickers the cap on/off every frame,
+    // which resets the cycle-beat countdown far more often than the
+    // buffered energy level itself is actually changing.
+    public var bpmCapHysteresis: Double = 3
+
+    // Band-activity level boost: reuses the existing [[band_triggers.bands]]
+    // holdoff state (see BandTriggerTracker.activeBandCount) rather than
+    // any new spectral analysis. While at least bandActivityBoostBandCount
+    // configured bands are simultaneously within their post-trigger holdoff
+    // window, the computed energy level is bumped up by
+    // bandActivityBoostLevels steps (applied before the tempo cap above, so
+    // the cap still wins as the hard ceiling). 0 = disabled — the default,
+    // so existing configs and a disabled [band_triggers] section see no
+    // behavior change.
+    public var bandActivityBoostBandCount: Int = 0
+    public var bandActivityBoostLevels: Int    = 1
 }
 
 public struct CalibrationSection {
@@ -223,6 +252,9 @@ public struct ConfigParser {
         cfg.energy.troughChannel = 2
         cfg.energy.cycleBeats = 16
         cfg.energy.cycleNotes = [60, 62, 64, 65, 67, 69, 71, 72]
+        cfg.energy.lowBpmCapThreshold = 95
+        cfg.energy.mediumBpmCapThreshold = 115
+        cfg.energy.bpmCapHysteresis = 3
         return cfg
     }
 
@@ -369,6 +401,11 @@ public struct ConfigParser {
                 case "trough_channel":       cfg.energy.troughChannel = Int(value) ?? 2
                 case "cycle_beats":         cfg.energy.cycleBeats = Int(value) ?? 16
                 case "cycle_notes":         cfg.energy.cycleNotes = parseIntArray(value)
+                case "low_bpm_cap_threshold":    cfg.energy.lowBpmCapThreshold = Double(value) ?? 95
+                case "medium_bpm_cap_threshold": cfg.energy.mediumBpmCapThreshold = Double(value) ?? 115
+                case "bpm_cap_hysteresis":       cfg.energy.bpmCapHysteresis = Double(value) ?? 3
+                case "band_activity_boost_band_count": cfg.energy.bandActivityBoostBandCount = Int(value) ?? 0
+                case "band_activity_boost_levels":     cfg.energy.bandActivityBoostLevels = Int(value) ?? 1
                 default: break
                 }
             case "energy.smoothing":

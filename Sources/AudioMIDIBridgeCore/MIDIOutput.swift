@@ -25,8 +25,29 @@ public final class MIDIOutput {
     private var noteOffTimer: DispatchSourceTimer?
     private let noteOffQueue = DispatchQueue(label: "midi.noteoffs", qos: .userInteractive)
 
+    /// Fires after the virtual endpoint has been transparently recreated
+    /// following a CoreMIDI setup change that actually invalidated it (e.g.
+    /// the system `midiserver` daemon restarting) — never for ordinary
+    /// setup changes like some unrelated MIDI device being plugged in,
+    /// which also generate a setup-changed notification but leave this
+    /// endpoint perfectly valid. Recovery itself is automatic either way;
+    /// this exists purely so the app can surface a "MIDI reconnected"
+    /// notice, since a DAW/lighting console on the other end may need to
+    /// re-select the port.
+    public var onReconnect: (() -> Void)?
+
     public init() throws {
-        var status = MIDIClientCreate(Self.virtualSourceName as CFString, nil, nil, &client)
+        // MIDINotifyProc is a C function pointer (`@convention(c)`), so it
+        // can't capture `self` — instead, `self` is smuggled through as the
+        // opaque refCon and reconstructed inside the callback via
+        // Unmanaged. Safe to take here: every stored property above already
+        // has a default value, so `self` is fully initialized the moment
+        // this initializer's body starts running.
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        var status = MIDIClientCreate(Self.virtualSourceName as CFString, { notification, refCon in
+            guard let refCon, notification.pointee.messageID == .msgSetupChanged else { return }
+            Unmanaged<MIDIOutput>.fromOpaque(refCon).takeUnretainedValue().handleSetupChanged()
+        }, selfPtr, &client)
         guard status == noErr else { throw MIDIError.clientFailed(status) }
 
         status = MIDISourceCreate(client, Self.virtualSourceName as CFString, &endpoint)
@@ -39,6 +60,32 @@ public final class MIDIOutput {
         noteOffTimer?.cancel()
         if endpoint != 0 { MIDIEndpointDispose(endpoint) }
         if client   != 0 { MIDIClientDispose(client) }
+    }
+
+    // MARK: - Setup-change recovery
+
+    /// A `kMIDIMsgSetupChanged` notification fires for almost any MIDI
+    /// system change (plugging in an unrelated USB MIDI keyboard triggers
+    /// one too), so this only actually recreates the endpoint if it's
+    /// genuinely gone stale — a cheap property read distinguishes "some
+    /// other device changed" from "midiserver restarted and dropped our
+    /// virtual source." Blindly recreating on every notification would
+    /// needlessly disconnect anything already subscribed to this port.
+    private func handleSetupChanged() {
+        guard client != 0, !isEndpointValid() else { return }
+
+        if endpoint != 0 { MIDIEndpointDispose(endpoint) }
+        endpoint = 0
+        guard MIDISourceCreate(client, Self.virtualSourceName as CFString, &endpoint) == noErr else { return }
+
+        let callback = onReconnect
+        DispatchQueue.main.async { callback?() }
+    }
+
+    private func isEndpointValid() -> Bool {
+        guard endpoint != 0 else { return false }
+        var name: Unmanaged<CFString>?
+        return MIDIObjectGetStringProperty(endpoint, kMIDIPropertyName, &name) == noErr
     }
 
     // MARK: - Note On/Off

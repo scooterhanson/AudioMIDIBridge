@@ -9,9 +9,15 @@ struct StatusPanel: View {
             Text("Status").font(AppFont.headline)
             HStack {
                 Circle()
-                    .fill(controller.isPaused ? Color.gray : (controller.isSilent ? Color.yellow : Color.green))
+                    .fill(statusColor)
                     .frame(width: 10, height: 10)
-                Text(controller.isPaused ? "PAUSED" : (controller.isSilent ? "SILENT" : "ACTIVE")).bold()
+                Text(statusLabel).bold()
+            }
+            if let notice = controller.transientNotice {
+                Text(notice)
+                    .font(AppFont.caption)
+                    .foregroundStyle(.blue)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             row("Tempo", controller.bpm > 0 ? String(format: "%.1f BPM", controller.bpm) : "—")
             row("Next Cycle", controller.cycleBeatsRemaining.map { "\($0) beat\($0 == 1 ? "" : "s")" } ?? "—")
@@ -20,6 +26,7 @@ struct StatusPanel: View {
             row("Last MIDI", controller.lastNoteDescription)
             Group {
                 Divider()
+                row("Version", appVersion, font: AppFont.captionMonospaced)
                 row("Config", controller.configPath, font: AppFont.captionMonospaced)
                 if let err = controller.startupError {
                     Text(err)
@@ -29,6 +36,21 @@ struct StatusPanel: View {
                 }
             }
         }
+    }
+
+    // Stalled audio takes priority over every other state — it's the one
+    // condition that means MIDI has actually stopped going out, so it
+    // should be impossible to miss at a glance.
+    private var statusColor: Color {
+        if controller.isAudioStalled { return .red }
+        if controller.isPaused { return .gray }
+        return controller.isSilent ? .yellow : .green
+    }
+
+    private var statusLabel: String {
+        if controller.isAudioStalled { return "AUDIO STALLED" }
+        if controller.isPaused { return "PAUSED" }
+        return controller.isSilent ? "SILENT" : "ACTIVE"
     }
 
     private func row(_ label: String, _ value: String, font: Font = AppFont.bodyMonospaced) -> some View {

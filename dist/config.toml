@@ -90,7 +90,7 @@ tap_note_duration_ms = 20
 
 # Minimum beats between stable energy cycle notes.
 # Realtime peak/trough note jumps can fire sooner when thresholds are crossed.
-cycle_beats = 16
+cycle_beats = 48
 
 # Realtime peak/trough thresholds for immediate note jumps.
 baseline_threshold = 0.192148
@@ -99,6 +99,14 @@ peak_note = -1
 peak_channel = 2
 trough_note = -1
 trough_channel = 2
+
+# Tempo-based energy ceiling. While the detected BPM stays below
+# low_bpm_cap_threshold, the energy level is never allowed above the level
+# named "low"; below medium_bpm_cap_threshold, never above "medium". No cap
+# applies once tempo clears medium_bpm_cap_threshold, or while no tempo
+# estimate exists yet (BPM 0).
+low_bpm_cap_threshold = 95.0
+medium_bpm_cap_threshold = 115.0
 
 # Each level has only a lower boundary (min_rms). A level's effective upper
 # bound is always the NEXT level's min_rms — there's no independent max_rms
@@ -116,25 +124,25 @@ channel    = 16
 [[energy.levels]]
 name       = "low"
 min_rms    = 0.165456
-midi_notes = [36, 38, 40]
+midi_notes = [36, 38, 40, 36, 38, 40, 36, 38, 40]
 channel    = 16
 
 [[energy.levels]]
 name       = "medium"
 min_rms    = 0.365152
-midi_notes = [37, 38, 41]
+midi_notes = [37, 38, 41, 37, 38, 41, 37, 38, 41]
 channel    = 16
 
 [[energy.levels]]
 name       = "high"
 min_rms    = 0.649967
-midi_notes = [38]
+midi_notes = [38, 38, 38, 38, 38, 38]
 channel    = 16
 
 [[energy.levels]]
 name       = "very_high"
 min_rms    = 0.869308
-midi_notes = [39]
+midi_notes = [39, 39, 39, 39, 39, 39]
 channel    = 16
 
 [energy.smoothing]

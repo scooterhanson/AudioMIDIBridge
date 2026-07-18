@@ -77,7 +77,7 @@ final class TerminalDisplay {
         var out = ansi("H")   // cursor home, no clear (flicker-free)
 
         // ── Header ─────────────────────────────────────────────────────────
-        out += bold("AudioMIDIBridge") + "  "
+        out += bold("AudioMIDIBridge \(appVersion)") + "  "
         out += dim(String(format: "uptime %02d:%02d:%02d", h, m, s))
         out += "\n" + String(repeating: "─", count: 60) + "\n"
 

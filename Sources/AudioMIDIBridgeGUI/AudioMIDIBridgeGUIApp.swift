@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AudioMIDIBridgeCore
 
 /// Ensures the audio engine stops and any lingering MIDI note (e.g. the
 /// silence indicator) is turned off on quit — mirrors the CLI's SIGINT
@@ -18,7 +19,7 @@ struct AudioMIDIBridgeGUIApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup("AudioMIDIBridge") {
+        WindowGroup("AudioMIDIBridge \(appVersion)") {
             ContentView(controller: controller)
                 .onAppear {
                     appDelegate.controller = controller

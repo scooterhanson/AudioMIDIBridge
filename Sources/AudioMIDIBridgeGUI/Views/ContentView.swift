@@ -10,8 +10,16 @@ struct ContentView: View {
             metersRow
 
             HStack(alignment: .top, spacing: 20) {
-                leftPane
-                    .frame(width: 280, alignment: .leading)
+                // Scrolls internally instead of sizing to fit its content —
+                // otherwise a long tuning-recommendations list (the one
+                // thing here with unbounded height) would grow the left
+                // column, which grows this HStack, which grows the whole
+                // window on a screen too short to fit it, shoving the
+                // meters above it off the top of the screen.
+                ScrollView {
+                    leftPane
+                }
+                .frame(width: 280, alignment: .leading)
 
                 Divider()
 
@@ -74,19 +82,22 @@ struct ContentView: View {
         .opacity(controller.isPaused ? 0.4 : 1.0)
     }
 
-    /// Status/history up top; the tuning banner (when present) is pinned to
-    /// the bottom via the Spacer above it, out of the way of the meters.
+    /// Status/history up top, tuning banner (when present) below — this
+    /// whole column lives inside a ScrollView (see above), so there's no
+    /// need for a bottom-pinning Spacer here anymore.
     private var leftPane: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(controller.currentLevelName.uppercased())
                 .font(AppFont.title2).bold()
 
+            if !controller.configWarnings.isEmpty {
+                ConfigWarningBanner(controller: controller)
+            }
+
             StatusPanel(controller: controller)
 
             Divider()
             HistoryPanel(entries: controller.history)
-
-            Spacer()
 
             if !controller.tuningRecommendations.isEmpty {
                 TuningRecommendationsBanner(controller: controller)

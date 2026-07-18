@@ -67,6 +67,10 @@ final class AppController: ObservableObject {
     @Published private(set) var history: [LevelHistoryEntry] = []
     @Published private(set) var startupError: String?
     @Published private(set) var tuningRecommendations: [String] = []
+    // Values ConfigValidator had to replace with a safe default at load —
+    // e.g. an invalid sample_rate/fft_size that would otherwise crash
+    // AudioEngine at launch. Empty whenever config.toml was already valid.
+    @Published private(set) var configWarnings: [String] = []
 
     // True while the Advanced tab is showing — listening/processing is
     // paused so edits there land on a value that can't be yanked out from
@@ -74,15 +78,35 @@ final class AppController: ObservableObject {
     // writes down exactly what the user is looking at.
     @Published private(set) var isPaused = false
 
+    // True when the audio pipeline hasn't delivered a frame in
+    // watchdogStallThreshold seconds while it should be actively running —
+    // see startWatchdogTimer(). onFrame fires continuously regardless of
+    // musical silence (silence only changes what EnergyTracker does with
+    // the RMS, not whether frames arrive), so this only ever fires on a
+    // genuine pipeline failure: a disconnected interface, a route change
+    // AVAudioEngine didn't recover from, etc.
+    @Published private(set) var isAudioStalled = false
+    // A one-shot, self-clearing notice — e.g. "MIDI reconnected after a
+    // system reset" — surfaced from MIDIOutput.onReconnect. Not an error;
+    // StatusPanel shows and then the caller dismisses it after a delay.
+    @Published var transientNotice: String?
+
     // Calibration
     @Published var isCalibrating = false
     @Published var calibrationOutcome: CalibrationOutcome?
+
+    // Chart generation — manual/on-demand only (see generateChart()), never
+    // triggered automatically or redrawn continuously.
+    @Published var isGeneratingChart = false
+    @Published var chartResultPath: String?
+    @Published var chartError: String?
 
     private var audio: AudioEngine?
     private var midi: MIDIOutput?
     private var tempo: TempoDetector?
     private var energy: EnergyTracker?
     private var bandTriggers: BandTriggerTracker?
+    private var eventLog: MidiEventLog?
 
     // Plain scalar copies of values the wireCallbacks closures below read on
     // every firing, read from the audio thread. Deliberately NOT read from
@@ -119,6 +143,17 @@ final class AppController: ObservableObject {
     private var pulseTimer: Timer?
     private static let pulseDecayDuration: Double = 0.4
 
+    // Audio watchdog: a timer independent of pulseTimer (kept separate
+    // deliberately — pulseTimer is purely cosmetic, this is a safety
+    // feature, and tangling the two risks losing this one if pulseTimer's
+    // lifecycle ever changes for cosmetic reasons). Checked once/sec;
+    // recovery attempts are cooled down separately so a genuine stall
+    // doesn't cause audio.stop()/start() to be hammered every tick.
+    private var watchdogTimer: Timer?
+    private var lastWatchdogRecoveryAttempt: Double = 0
+    private static let watchdogStallThreshold: Double = 3.0
+    private static let watchdogRecoveryCooldown: Double = 5.0
+
     // Rapid-cycling detection: audio-thread-only, touched exclusively from
     // recordLevelChange (itself only ever called from the audio thread via
     // the energy/silence callbacks below) — no cross-thread access, unlike
@@ -145,14 +180,17 @@ final class AppController: ObservableObject {
         let args = CommandLine.arguments.dropFirst()
         configPath = Self.resolveConfigPath(argument: args.first)
 
-        let cfg: AppConfig
+        var cfg: AppConfig
         do {
             cfg = try ConfigParser.load(from: configPath)
         } catch {
             cfg = ConfigParser.loadDefault()
         }
+        let validation = ConfigValidator.validate(cfg)
+        cfg = validation.config
         savedConfig = cfg
         liveConfig  = cfg
+        configWarnings = validation.warnings
     }
 
     /// Resolves the config path to use, always as an absolute path:
@@ -234,6 +272,18 @@ final class AppController: ObservableObject {
             startupError = "MIDI init failed: \(error.localizedDescription)"
             return
         }
+        midi?.onReconnect = { [weak self] in
+            guard let self else { return }
+            let notice = "MIDI reconnected after a system reset"
+            self.transientNotice = notice
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                // Only clear it if it's still the same notice — avoids
+                // wiping out a newer one if this fires in quick succession.
+                if self?.transientNotice == notice { self?.transientNotice = nil }
+            }
+        }
+
+        eventLog = MidiEventLog(csvPath: Self.sessionFilePath(nextTo: configPath, prefix: "midi_events", suffix: "csv"))
 
         let tempo   = TempoDetector(cfg: cfg.tempo, sampleRate: cfg.audio.sampleRate, hopSize: cfg.audio.hopSize)
         let energy  = EnergyTracker(cfg: cfg.energy, silenceCfg: cfg.silence,
@@ -250,6 +300,7 @@ final class AppController: ObservableObject {
 
         wireCallbacks(cfg: cfg)
         startPulseTimer()
+        startWatchdogTimer()
 
         do {
             try audio.start()
@@ -271,11 +322,47 @@ final class AppController: ObservableObject {
         pulseTimer = timer
     }
 
+    /// Checks once/sec whether `audio.onFrame` has gone quiet for longer
+    /// than makes sense while actively running — onFrame fires continuously
+    /// regardless of musical silence, so this only fires on a genuine
+    /// pipeline failure (disconnected interface, a route change
+    /// AVAudioEngine didn't recover from). On detecting a stall, surfaces
+    /// `isAudioStalled` and attempts one stop/start recovery cycle, cooled
+    /// down separately so a persistent stall doesn't hammer the engine.
+    private func startWatchdogTimer() {
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.checkAudioWatchdog()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        watchdogTimer = timer
+    }
+
+    private func checkAudioWatchdog() {
+        guard let audio, !isPaused else { return }
+        let now = CACurrentMediaTime()
+        guard now - lastFrameTimestamp > Self.watchdogStallThreshold else {
+            isAudioStalled = false
+            return
+        }
+        isAudioStalled = true
+        guard now - lastWatchdogRecoveryAttempt > Self.watchdogRecoveryCooldown else { return }
+        lastWatchdogRecoveryAttempt = now
+        audio.stop()
+        do {
+            try audio.start()
+        } catch {
+            startupError = "Audio watchdog recovery failed: \(error.localizedDescription)"
+        }
+    }
+
     func stop() {
         pulseTimer?.invalidate()
         pulseTimer = nil
+        watchdogTimer?.invalidate()
+        watchdogTimer = nil
         audio?.stop()
         midi?.noteOff(channel: liveConfig.silence.channel, note: liveConfig.silence.midiNote)
+        eventLog?.close()
     }
 
     /// Stops audio capture (and thus all downstream energy/tempo/band
@@ -294,6 +381,9 @@ final class AppController: ObservableObject {
         pulseTimer?.invalidate()
         pulseTimer = nil
         pulseIntensity = 0
+        watchdogTimer?.invalidate()
+        watchdogTimer = nil
+        isAudioStalled = false
     }
 
     /// Resumes audio capture and the pulse timer when navigating back to
@@ -301,16 +391,22 @@ final class AppController: ObservableObject {
     func resumeProcessing() {
         guard isPaused else { return }
         isPaused = false
+        // Otherwise the watchdog would see the elapsed-since-pause gap as a
+        // stall the instant it starts checking again.
+        lastFrameTimestamp = CACurrentMediaTime()
+        lastWatchdogRecoveryAttempt = 0
         do {
             try audio?.start()
         } catch {
             startupError = "Audio engine failed to resume: \(error.localizedDescription)"
         }
         startPulseTimer()
+        startWatchdogTimer()
     }
 
-    private func sendNoteOn(channel: Int, note: Int, durationMs: Int) {
+    private func sendNoteOn(channel: Int, note: Int, durationMs: Int, source: String) {
         midi?.noteOnTimed(channel: channel, note: note, velocity: defaultNoteVelocity, durationMs: durationMs)
+        eventLog?.record(note: note, channel: channel, velocity: defaultNoteVelocity, source: source)
         let desc = "ch\(channel) note\(note)"
         DispatchQueue.main.async { [weak self] in self?.lastNoteDescription = desc }
     }
@@ -320,7 +416,7 @@ final class AppController: ObservableObject {
 
         tempo.onBeat = { [weak self] bpm in
             guard let self else { return }
-            self.sendNoteOn(channel: self.tapChannel, note: self.tapNote, durationMs: cfg.tempo.tapDurationMs)
+            self.sendNoteOn(channel: self.tapChannel, note: self.tapNote, durationMs: cfg.tempo.tapDurationMs, source: "tap")
             DispatchQueue.main.async {
                 self.bpm = bpm
                 self.lastBeatTime = CACurrentMediaTime()
@@ -335,7 +431,7 @@ final class AppController: ObservableObject {
             // last left off (see EnergyNoteCycler).
             let note = self.energyNoteCycler.advance(for: level)
             self.stableLevelSince = CACurrentMediaTime()
-            self.sendNoteOn(channel: level.channel, note: note, durationMs: 50)
+            self.sendNoteOn(channel: level.channel, note: note, durationMs: 50, source: "energy:\(level.name)")
             // Read the live scalar copy (not the captured `cfg` snapshot,
             // and not `liveConfig` directly — see crossfadeDefaultBeats'
             // declaration) so its slider takes effect without a restart.
@@ -346,36 +442,55 @@ final class AppController: ObservableObject {
         }
 
         energy.onPeakTrigger = { [weak self] note, channel in
-            self?.sendNoteOn(channel: channel, note: note, durationMs: 50)
+            self?.sendNoteOn(channel: channel, note: note, durationMs: 50, source: "peak")
         }
         energy.onTroughTrigger = { [weak self] note, channel in
-            self?.sendNoteOn(channel: channel, note: note, durationMs: 50)
+            self?.sendNoteOn(channel: channel, note: note, durationMs: 50, source: "trough")
         }
 
         energy.onSilenceBegin = { [weak self] in
             guard let self else { return }
             tempo.reset()
             self.stableLevelSince = CACurrentMediaTime()
-            self.sendNoteOn(channel: self.silenceChannel, note: self.silenceMidiNote, durationMs: 100)
+            self.sendNoteOn(channel: self.silenceChannel, note: self.silenceMidiNote, durationMs: 100, source: "silence")
             self.recordLevelChange(newName: nil, newNote: -1)
             DispatchQueue.main.async { self.currentLevelName = "SILENT"; self.isSilent = true }
         }
         energy.onSilenceEnd = { [weak self] in
             guard let self else { return }
             self.stableLevelSince = CACurrentMediaTime()
-            self.sendNoteOn(channel: self.silenceResumeChannel, note: self.silenceResumeNote, durationMs: 50)
+            self.sendNoteOn(channel: self.silenceResumeChannel, note: self.silenceResumeNote, durationMs: 50, source: "resume")
             DispatchQueue.main.async { self.currentLevelName = "—"; self.isSilent = false }
         }
 
         bandTriggers.onTrigger = { [weak self] trigger in
             self?.sendNoteOn(channel: trigger.channel, note: trigger.midiNote,
-                              durationMs: cfg.bandTriggers.triggerDurationMs)
+                              durationMs: cfg.bandTriggers.triggerDurationMs, source: "band:\(trigger.name)")
         }
 
         audio.onFrame = { [weak self] frame in
             guard let self else { return }
-            tempo.feed(frame: frame)
+            // Give energy the current tempo estimate and band-trigger
+            // activity before feeding it, so its tempo cap and band-activity
+            // boost (see EnergyConfig) both see up-to-date values — one
+            // frame stale at most, same as bpm below, since bandTriggers
+            // hasn't fed this frame's bandEnergies yet either. energy.feed()
+            // itself runs before tempo.feed() below so its silence state is
+            // current-frame-fresh, rather than a frame stale, when we decide
+            // whether to feed tempo.
+            energy.bpm = tempo.bpm
+            energy.bandActiveCount = bandTriggers.activeBandCount
             energy.feed(rms: frame.rms)
+            // Suspend tempo tracking entirely during silence — not just a
+            // one-time reset() on silence begin (see onSilenceBegin below).
+            // Without this, any residual noise (room hum, HVAC, reverb
+            // tail, mic self-noise) can still register as a fresh onset and
+            // have TempoDetector re-establish a bogus tempo and start
+            // firing onBeat again, i.e. "tempo keeps tapping after the
+            // music stops."
+            if !energy.silent {
+                tempo.feed(frame: frame)
+            }
             bandTriggers.feed(bandEnergies: frame.bandEnergies)
 
             let now = frame.timestamp
@@ -395,7 +510,7 @@ final class AppController: ObservableObject {
                 let threshold = Double(cfg.energy.cycleBeats) * secondsPerBeat
                 if now - self.stableLevelSince >= threshold {
                     let note = self.energyNoteCycler.advance(for: level)
-                    self.sendNoteOn(channel: level.channel, note: note, durationMs: 50)
+                    self.sendNoteOn(channel: level.channel, note: note, durationMs: 50, source: "energy:\(level.name)")
                     self.stableLevelSince = now
                 }
                 let elapsedBeats = Int((now - self.stableLevelSince) / secondsPerBeat)
@@ -499,6 +614,10 @@ final class AppController: ObservableObject {
         tuningRecommendations = []
     }
 
+    func dismissConfigWarnings() {
+        configWarnings = []
+    }
+
     // MARK: - Live threshold edits (called from slider bindings)
 
     func setSilenceThreshold(_ value: Double) {
@@ -597,6 +716,36 @@ final class AppController: ObservableObject {
     func setOnsetSensitivity(_ value: Double) {
         liveConfig.tempo.onsetSensitivity = value
         tempo?.onsetSensitivity = value
+        hasUnsavedChanges = true
+    }
+
+    func setLowBpmCapThreshold(_ value: Double) {
+        liveConfig.energy.lowBpmCapThreshold = value
+        energy?.lowBpmCapThreshold = value
+        hasUnsavedChanges = true
+    }
+
+    func setMediumBpmCapThreshold(_ value: Double) {
+        liveConfig.energy.mediumBpmCapThreshold = value
+        energy?.mediumBpmCapThreshold = value
+        hasUnsavedChanges = true
+    }
+
+    func setBpmCapHysteresis(_ value: Double) {
+        liveConfig.energy.bpmCapHysteresis = value
+        energy?.bpmCapHysteresis = value
+        hasUnsavedChanges = true
+    }
+
+    func setBandActivityBoostBandCount(_ value: Int) {
+        liveConfig.energy.bandActivityBoostBandCount = value
+        energy?.bandActivityBoostBandCount = value
+        hasUnsavedChanges = true
+    }
+
+    func setBandActivityBoostLevels(_ value: Int) {
+        liveConfig.energy.bandActivityBoostLevels = value
+        energy?.bandActivityBoostLevels = value
         hasUnsavedChanges = true
     }
 
@@ -700,12 +849,15 @@ final class AppController: ObservableObject {
     }
 
     func revert() {
-        let cfg: AppConfig
+        var cfg: AppConfig
         do {
             cfg = try ConfigParser.load(from: configPath)
         } catch {
             cfg = savedConfig
         }
+        let validation = ConfigValidator.validate(cfg)
+        cfg = validation.config
+        configWarnings = validation.warnings
         liveConfig = cfg
         savedConfig = cfg
         energy?.silenceThreshold = cfg.audio.silenceThreshold
@@ -720,6 +872,11 @@ final class AppController: ObservableObject {
         energy?.peakChannel = cfg.energy.peakChannel
         energy?.troughNote = cfg.energy.troughNote
         energy?.troughChannel = cfg.energy.troughChannel
+        energy?.lowBpmCapThreshold = cfg.energy.lowBpmCapThreshold
+        energy?.mediumBpmCapThreshold = cfg.energy.mediumBpmCapThreshold
+        energy?.bpmCapHysteresis = cfg.energy.bpmCapHysteresis
+        energy?.bandActivityBoostBandCount = cfg.energy.bandActivityBoostBandCount
+        energy?.bandActivityBoostLevels = cfg.energy.bandActivityBoostLevels
         tempo?.bpmSmoothingBeats = cfg.tempo.bpmSmoothingBeats
         tempo?.onsetSensitivity = cfg.tempo.onsetSensitivity
         tapNote = cfg.tempo.tapNote
@@ -771,5 +928,48 @@ final class AppController: ObservableObject {
         if let silence = outcome.recommendedSilence { setSilenceThreshold(silence) }
         if let baseline = outcome.recommendedBaseline { setBaselineThreshold(baseline) }
         if let peak = outcome.recommendedPeak { setPeakThreshold(peak) }
+    }
+
+    // MARK: - Session timeline chart (manual/on-demand only)
+
+    /// Renders a PNG timeline of every MIDI note-on sent this session, from
+    /// whatever `eventLog` has recorded so far — entirely on a background
+    /// queue, exactly like calibration above, so it can never contend with
+    /// the audio thread even if triggered mid-session. This is a strictly
+    /// manual action (a GUI button calls this) — there is no automatic or
+    /// continuously-redrawing chart anywhere in the app.
+    func generateChart() {
+        guard let eventLog else { return }
+        isGeneratingChart = true
+        chartError = nil
+        let entries = eventLog.entries
+        let outputPath = Self.sessionFilePath(nextTo: configPath, prefix: "midi_timeline", suffix: "png")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try ChartRenderer.renderTimelinePNG(entries: entries, to: outputPath)
+                DispatchQueue.main.async {
+                    self?.isGeneratingChart = false
+                    self?.chartResultPath = outputPath
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.isGeneratingChart = false
+                    self?.chartError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// A timestamped path next to config.toml, e.g.
+    /// ".../midi_events_20260718_213045.csv" — used for both the
+    /// continuously-written event log and the on-demand chart PNG, so every
+    /// session's artifacts sort together and never collide with another
+    /// session's.
+    private static func sessionFilePath(nextTo configPath: String, prefix: String, suffix: String) -> String {
+        let dir = URL(fileURLWithPath: configPath).deletingLastPathComponent()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        let stamp = formatter.string(from: Date())
+        return dir.appendingPathComponent("\(prefix)_\(stamp).\(suffix)").path
     }
 }
